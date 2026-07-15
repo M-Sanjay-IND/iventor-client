@@ -1,0 +1,5 @@
+dist
+node_modules
+supabase/.temp
+*.min.js
+*.min.css
