@@ -5,3 +5,16 @@
  */
 
 export { InventoryPage } from './pages/InventoryPage'
+
+export type {
+  Category,
+  Location,
+  CopyCondition,
+  CopyStatus,
+  InventoryItem,
+  InventoryItemWithCategory,
+  InventoryCopy,
+  InventoryCopyWithRelations,
+  InventorySummary,
+  CategoryCount,
+} from './types'
