@@ -1,5 +1,11 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { LoginPage, ProtectedRoute, PublicRoute } from '@/features/auth'
+import { AdminLayout } from '@/components/layout/AdminLayout'
+import { DashboardPage } from '@/features/dashboard'
+import { InventoryPage } from '@/features/inventory'
+import { QrPage } from '@/features/qr'
+import { ReportsPage } from '@/features/reports'
+import { SettingsPage } from '@/features/settings'
 
 /**
  * Application route definitions.
@@ -24,23 +30,15 @@ export function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
       </Route>
 
-      {/* Protected admin routes */}
+      {/* Protected admin routes — wrapped in AdminLayout */}
       <Route path="/admin" element={<ProtectedRoute />}>
-        <Route
-          index
-          element={
-            <div className="flex min-h-screen items-center justify-center bg-background text-foreground">
-              <div className="text-center">
-                <h1 className="text-3xl font-bold tracking-tight">
-                  Admin Dashboard
-                </h1>
-                <p className="mt-2 text-muted-foreground">
-                  Welcome — dashboard modules coming in the next milestone.
-                </p>
-              </div>
-            </div>
-          }
-        />
+        <Route element={<AdminLayout />}>
+          <Route index element={<DashboardPage />} />
+          <Route path="inventory" element={<InventoryPage />} />
+          <Route path="qr" element={<QrPage />} />
+          <Route path="reports" element={<ReportsPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+        </Route>
       </Route>
     </Routes>
   )
