@@ -24,7 +24,7 @@ This document outlines the phased implementation plan for the **Inventor Client*
 
 ---
 
-## 🟡 Phase 2: Admin Dashboard Layout & Navigation (NEXT)
+## 🟢 Phase 2: Admin Dashboard Layout & Navigation (COMPLETED)
 **Goal:** Build the structural UI frame for the Admin Interface.
 *   **App Shell:** Responsive sidebar navigation, top header, user profile dropdown.
 *   **Navigation:** Breadcrumbs, active route states, mobile drawer menu.
@@ -34,7 +34,7 @@ This document outlines the phased implementation plan for the **Inventor Client*
 
 ---
 
-## ⚪ Phase 3: Core Inventory Database Design
+## 🟢 Phase 3: Core Inventory Database Design (COMPLETED)
 **Goal:** Establish the normalized PostgreSQL schema for physical inventory.
 *   **Schema Design:** `categories`, `locations`, `inventory_items` (abstract), and `inventory_copies` (physical).
 *   **Constraints:** Foreign keys, unique constraints, soft deletes (`deleted_at`).
@@ -43,7 +43,7 @@ This document outlines the phased implementation plan for the **Inventor Client*
 
 ---
 
-## ⚪ Phase 4: Inventory Management UI
+## 🟡 Phase 4: Inventory Management UI (NEXT)
 **Goal:** Build the CRUD interfaces for managing inventory.
 *   **Data Tables:** Integrate TanStack Table with pagination, sorting, and server-side filtering.
 *   **Forms:** React Hook Form + Zod for creating/editing Items and physical Copies.
