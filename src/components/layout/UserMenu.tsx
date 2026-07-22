@@ -20,7 +20,7 @@ export function UserMenu() {
   if (!profile) return null
 
   const displayName = `${profile.first_name} ${profile.last_name}`.trim()
-  const initials = `${profile.first_name?.[0] ?? ''}${profile.last_name?.[0] ?? ''}`.toUpperCase()
+  const initials = `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`.toUpperCase()
 
   return (
     <div ref={menuRef} className="relative">
