@@ -93,3 +93,21 @@ export const AUDIT_ACTIONS = {
   USER_UPDATE: 'user.update',
   USER_DELETE: 'user.delete',
 } as const
+
+/** Sidebar navigation items */
+export const NAV_ITEMS = [
+  { path: '/admin', label: 'Dashboard', icon: 'LayoutDashboard' },
+  { path: '/admin/inventory', label: 'Inventory', icon: 'Package' },
+  { path: '/admin/qr', label: 'QR Codes', icon: 'QrCode' },
+  { path: '/admin/reports', label: 'Reports', icon: 'BarChart3' },
+  { path: '/admin/settings', label: 'Settings', icon: 'Settings' },
+] as const
+
+/** Route label map for breadcrumbs */
+export const ROUTE_LABELS: Record<string, string> = {
+  admin: 'Dashboard',
+  inventory: 'Inventory',
+  qr: 'QR Codes',
+  reports: 'Reports',
+  settings: 'Settings',
+} as const
