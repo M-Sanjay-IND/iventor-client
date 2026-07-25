@@ -7,7 +7,7 @@ import type {
   InventoryItemWithCategory,
   InventoryCopy,
 } from '../types'
-import type { PaginationParams, SortParams, FilterParam } from '@/types'
+import type { PaginationParams, SortParams } from '@/types'
 
 // ============================================================================
 // Items

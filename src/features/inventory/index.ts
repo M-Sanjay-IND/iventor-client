@@ -5,6 +5,8 @@
  */
 
 export { InventoryPage } from './pages/InventoryPage'
+export { ItemDetailPage } from './pages/ItemDetailPage'
+export { ItemFormPage } from './pages/ItemFormPage'
 
 export type {
   Category,

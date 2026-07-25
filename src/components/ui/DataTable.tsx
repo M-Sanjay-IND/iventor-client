@@ -59,7 +59,7 @@ export function DataTable<TData>({
     },
     onRowSelectionChange: enableSelection ? setSelection : undefined,
     enableRowSelection: enableSelection,
-    getRowId: (row) => (row as Record<string, string>).id,
+    getRowId: (row) => String((row as Record<string, unknown>).id),
   })
 
   return (

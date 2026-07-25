@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { LoginPage, ProtectedRoute, PublicRoute } from '@/features/auth'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { DashboardPage } from '@/features/dashboard'
-import { InventoryPage } from '@/features/inventory'
+import { InventoryPage, ItemDetailPage, ItemFormPage } from '@/features/inventory'
 import { QrPage } from '@/features/qr'
 import { ReportsPage } from '@/features/reports'
 import { SettingsPage } from '@/features/settings'
@@ -34,7 +34,13 @@ export function AppRoutes() {
       <Route path="/admin" element={<ProtectedRoute />}>
         <Route element={<AdminLayout />}>
           <Route index element={<DashboardPage />} />
+
+          {/* Inventory sub-routes */}
           <Route path="inventory" element={<InventoryPage />} />
+          <Route path="inventory/new" element={<ItemFormPage />} />
+          <Route path="inventory/:id" element={<ItemDetailPage />} />
+          <Route path="inventory/:id/edit" element={<ItemFormPage />} />
+
           <Route path="qr" element={<QrPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="settings" element={<SettingsPage />} />

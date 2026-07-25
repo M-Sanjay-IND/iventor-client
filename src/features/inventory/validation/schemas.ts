@@ -24,6 +24,8 @@ export const itemFormSchema = z.object({
   metadata: z.record(z.unknown()).default({}),
 })
 
+export type ItemFormInput = z.input<typeof itemFormSchema>
+
 export type ItemFormValues = z.infer<typeof itemFormSchema>
 
 export const copyFormSchema = z.object({
@@ -53,6 +55,8 @@ export const copyFormSchema = z.object({
     .transform((v) => (v === '' ? null : v)),
 })
 
+export type CopyFormInput = z.input<typeof copyFormSchema>
+
 export type CopyFormValues = z.infer<typeof copyFormSchema>
 
 export const categoryFormSchema = z.object({
@@ -64,6 +68,8 @@ export const categoryFormSchema = z.object({
   parent_id: z.string().nullable().default(null),
 })
 
+export type CategoryFormInput = z.input<typeof categoryFormSchema>
+
 export type CategoryFormValues = z.infer<typeof categoryFormSchema>
 
 export const locationFormSchema = z.object({
@@ -74,5 +80,7 @@ export const locationFormSchema = z.object({
   description: z.string().default(''),
   parent_id: z.string().nullable().default(null),
 })
+
+export type LocationFormInput = z.input<typeof locationFormSchema>
 
 export type LocationFormValues = z.infer<typeof locationFormSchema>
