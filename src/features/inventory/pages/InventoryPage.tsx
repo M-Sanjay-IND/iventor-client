@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, FolderTree, MapPin, Search } from 'lucide-react'
+import { Plus, FolderTree, MapPin, Search, UploadCloud } from 'lucide-react'
 import { useItems, useCategories } from '../hooks/inventory.queries'
 import { ItemsTable } from '../components/ItemsTable'
 import { CategoryManager } from '../components/CategoryManager'
 import { LocationManager } from '../components/LocationManager'
+import { BulkImportModal } from '../components/BulkImportModal'
 import { DEFAULT_PAGE_SIZE } from '@/constants'
 import type { InventoryItemWithCategory } from '../types'
 
@@ -17,6 +18,7 @@ export function InventoryPage() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false)
   const [locationManagerOpen, setLocationManagerOpen] = useState(false)
+  const [bulkImportOpen, setBulkImportOpen] = useState(false)
 
   const { data: categories = [] } = useCategories()
   const { data, isLoading } = useItems({
@@ -42,14 +44,24 @@ export function InventoryPage() {
             Manage items and physical copies.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => navigate('/admin/inventory/new')}
-          className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          <Plus className="size-4" />
-          Add Item
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setBulkImportOpen(true)}
+            className="flex items-center gap-1.5 rounded-md border border-border bg-transparent px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <UploadCloud className="size-4" />
+            Bulk Import Copies
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/admin/inventory/new')}
+            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Plus className="size-4" />
+            Add Item
+          </button>
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -120,6 +132,7 @@ export function InventoryPage() {
       {/* Modals */}
       <CategoryManager open={categoryManagerOpen} onClose={() => setCategoryManagerOpen(false)} />
       <LocationManager open={locationManagerOpen} onClose={() => setLocationManagerOpen(false)} />
+      <BulkImportModal open={bulkImportOpen} onClose={() => setBulkImportOpen(false)} />
     </div>
   )
 }

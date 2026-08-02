@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Printer } from 'lucide-react'
 import { toast } from 'sonner'
-import { useQrByUid, useReprintQr, useReplaceQr } from '../hooks/qr.queries'
+import { useQrByUid, useReprintQr, useReplaceQr, useDeleteQr } from '../hooks/qr.queries'
 import { QrPreviewCard } from '../components/QrPreviewCard'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useState } from 'react'
@@ -13,8 +13,10 @@ export function QrDetailPage() {
   const { data: qr, isLoading } = useQrByUid(uid ?? '')
   const reprintMutation = useReprintQr()
   const replaceMutation = useReplaceQr()
+  const deleteMutation = useDeleteQr()
 
   const [replaceConfirmOpen, setReplaceConfirmOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   if (isLoading) {
     return (
@@ -62,6 +64,18 @@ export function QrDetailPage() {
     }
   }
 
+  async function handleDelete() {
+    try {
+      if (!qr) return
+      await deleteMutation.mutateAsync(qr.id)
+      toast.success('QR and associated copy successfully deleted')
+      setDeleteConfirmOpen(false)
+      void navigate('/admin/qr')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Delete failed')
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Back + Print */}
@@ -93,18 +107,30 @@ export function QrDetailPage() {
         qr={qr}
         onReprint={handleReprint}
         onReplace={() => setReplaceConfirmOpen(true)}
+        onDelete={() => setDeleteConfirmOpen(true)}
         reprintLoading={reprintMutation.isPending}
         replaceLoading={replaceMutation.isPending}
+        deleteLoading={deleteMutation.isPending}
       />
 
       {/* Replace confirmation */}
       <ConfirmDialog
         open={replaceConfirmOpen}
         onClose={() => setReplaceConfirmOpen(false)}
-        onConfirm={handleReplace}
+        onConfirm={() => void handleReplace()}
         title="Replace QR Code"
         message={`This will deactivate QR "${qr.qr_uid}" and generate a new one for the same copy. The original image is preserved. This action cannot be undone.`}
-        loading={replaceMutation.isPending}
+        confirmLabel="Replace"
+      />
+
+      {/* Delete confirmation */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        title="Delete QR and Copy"
+        message={`Are you sure you want to delete QR code ${qr.qr_uid}? This will also remove the physical inventory copy associated with it. This action cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={() => void handleDelete()}
       />
     </div>
   )

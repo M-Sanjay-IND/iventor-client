@@ -251,6 +251,16 @@ export async function createCopy(formData: CopyFormData): Promise<InventoryCopy>
   return data as InventoryCopy
 }
 
+export async function bulkCreateCopies(copies: CopyFormData[]): Promise<InventoryCopy[]> {
+  const { data, error } = await supabase
+    .from('inventory_copies')
+    .insert(copies)
+    .select()
+
+  if (error) throw new InventoryServiceError(error.message, 'COPY_BULK_CREATE_FAILED')
+  return data as InventoryCopy[]
+}
+
 export async function updateCopy(id: string, formData: Partial<CopyFormData>): Promise<InventoryCopy> {
   const { data, error } = await supabase
     .from('inventory_copies')

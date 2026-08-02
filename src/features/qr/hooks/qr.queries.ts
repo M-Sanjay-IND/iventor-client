@@ -14,6 +14,7 @@ import {
   reprintQr,
   replaceQr,
   getQrLabels,
+  softDeleteQr,
 } from '../services/qr.service'
 import type { QrCodeWithRelations } from '../types'
 
@@ -138,6 +139,19 @@ export function useReplaceQr() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: qrKeys.all })
       void queryClient.invalidateQueries({ queryKey: qrKeys.unlinked })
+    },
+  })
+}
+
+export function useDeleteQr() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (qrId: string) => softDeleteQr(qrId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: qrKeys.all })
+      // Since it cascades, also invalidate inventory copies
+      void queryClient.invalidateQueries({ queryKey: ['inventory', 'copies'] })
     },
   })
 }

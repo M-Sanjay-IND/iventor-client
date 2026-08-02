@@ -1,6 +1,6 @@
 /* eslint-disable */
 import { format } from 'date-fns'
-import { Download, Printer, RefreshCw } from 'lucide-react'
+import { Download, Printer, RefreshCw, Trash2 } from 'lucide-react'
 import { getQrImageUrl, downloadQrImage } from '../services/qr.service'
 import type { QrCodeWithRelations } from '../types'
 
@@ -8,16 +8,20 @@ interface QrPreviewCardProps {
   qr: QrCodeWithRelations
   onReprint?: () => void
   onReplace?: () => void
+  onDelete?: () => void
   reprintLoading?: boolean
   replaceLoading?: boolean
+  deleteLoading?: boolean
 }
 
 export function QrPreviewCard({
   qr,
   onReprint,
   onReplace,
+  onDelete,
   reprintLoading,
   replaceLoading,
+  deleteLoading,
 }: QrPreviewCardProps) {
   const imageUrl = getQrImageUrl(qr.png_storage_path)
 
@@ -122,10 +126,19 @@ export function QrPreviewCard({
                   type="button"
                   onClick={onReplace}
                   disabled={replaceLoading}
-                  className="flex items-center gap-1.5 rounded-md border border-destructive/30 px-3 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-md border border-amber-500/30 px-3 py-1.5 text-xs text-amber-600 transition-colors hover:bg-amber-500/10 disabled:opacity-50"
                 >
                   <RefreshCw className="size-3" />
                   {replaceLoading ? 'Replacing…' : 'Replace'}
+                </button>
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  disabled={deleteLoading}
+                  className="flex items-center gap-1.5 rounded-md border border-destructive/30 px-3 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                >
+                  <Trash2 className="size-3" />
+                  {deleteLoading ? 'Deleting…' : 'Delete'}
                 </button>
               </>
             )}

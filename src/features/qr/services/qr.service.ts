@@ -322,6 +322,48 @@ export async function replaceQr(qrId: string): Promise<QrCode> {
 }
 
 // ============================================================================
+// Deletion
+// ============================================================================
+
+export async function softDeleteQr(qrId: string): Promise<void> {
+  const timestamp = new Date().toISOString()
+
+  // 1. Get the copy_id of the QR code
+  const fetchResult = await supabase
+    .from('qr_codes')
+    .select('copy_id')
+    .eq('id', qrId)
+    .single()
+
+  if (fetchResult.error) {
+    throw new QrServiceError(fetchResult.error.message, 'QR_NOT_FOUND')
+  }
+
+  const copyId = fetchResult.data.copy_id
+
+  // 2. Soft delete and deactivate the QR code
+  const deactivateResult = await supabase
+    .from('qr_codes')
+    .update({ is_active: false, deleted_at: timestamp })
+    .eq('id', qrId)
+
+  if (deactivateResult.error) {
+    throw new QrServiceError(deactivateResult.error.message, 'QR_DELETE_FAILED')
+  }
+
+  // 3. Soft delete the associated inventory copy
+  const { error: copyError } = await supabase
+    .from('inventory_copies')
+    .update({ deleted_at: timestamp })
+    .eq('id', copyId)
+    .is('deleted_at', null)
+
+  if (copyError) {
+    throw new QrServiceError(copyError.message, 'QR_COPY_DELETE_FAILED')
+  }
+}
+
+// ============================================================================
 // Storage URLs
 // ============================================================================
 

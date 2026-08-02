@@ -16,6 +16,7 @@ import {
   getCopies,
   getNextCopyNumber,
   createCopy,
+  bulkCreateCopies,
   updateCopy,
   softDeleteCopy,
 } from '../services/inventory.service'
@@ -253,6 +254,17 @@ export function useDeleteCopy(itemId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: inventoryKeys.copies(itemId) })
       void queryClient.invalidateQueries({ queryKey: inventoryKeys.items() })
+    },
+  })
+}
+
+export function useBulkCreateCopies() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (copies: CopyFormData[]) => bulkCreateCopies(copies),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: inventoryKeys.all })
     },
   })
 }
