@@ -3,7 +3,7 @@ import Papa from 'papaparse'
 import { Upload, X, FileCheck2, AlertTriangle, Play, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { Modal } from '@/components/ui/Modal'
-import { useItems, useLocations, useBulkCreateCopies } from '../hooks/inventory.queries'
+import { useItems, useLocations, useBulkCreateCopies, useCreateLocation } from '../hooks/inventory.queries'
 import { useBulkGenerateQr } from '@/features/qr/hooks/qr.queries'
 import type { CopyFormData } from '../services/inventory.service'
 
@@ -16,6 +16,7 @@ interface ParsedRow {
   'Item Name': string
   'Location Name': string
   'Condition'?: string
+  'Status'?: string
   'Notes'?: string
 }
 
@@ -26,16 +27,15 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
   const [progress, setProgress] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Fetch all items and locations for mapping
   // Using pageSize: 1000 to ensure we grab enough for matching without full pagination logic for this tool
   const { data: itemsData } = useItems({ pageSize: 1000 })
-  const { data: locations } = useLocations()
+  const { data: locationsList = [] } = useLocations()
   
+  const createLocationMutation = useCreateLocation()
   const bulkCreateMutation = useBulkCreateCopies()
   const bulkQrMutation = useBulkGenerateQr()
 
   const items = itemsData?.data || []
-  const locationsList = locations || []
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0]
@@ -59,7 +59,7 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
   }
 
   function downloadTemplate() {
-    const headers = ['Item Name', 'Location Name', 'Condition', 'Notes']
+    const headers = ['Item Name', 'Location Name', 'Condition', 'Status', 'Notes']
     const csvContent = headers.join(',') + '\n'
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
@@ -80,13 +80,8 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
 
     try {
       const copiesToInsert: CopyFormData[] = []
-
-      // To handle copy numbers, we need to track max copy number per item.
-      // We will initialize this by finding the highest copy_number in the currently fetched items?
-      // Wait, we don't have copies locally fetched for ALL items. 
-      // Actually, we can fetch all copies or just trust the database if we had a single SQL function.
-      // Since we don't have a bulk insert with auto-incrementing copy_number in SQL, 
-      // we'll just fetch the max copy number for each matched item on the fly.
+      const locationMap = new Map<string, string>()
+      locationsList.forEach(l => locationMap.set(l.name.toLowerCase(), l.id))
       
       const maxCopyNumMap = new Map<string, number>()
       
@@ -95,17 +90,29 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
           throw new Error('All rows must have an Item Name and Location Name.')
         }
 
-        const item = items.find(i => i.name.toLowerCase() === row['Item Name'].toLowerCase())
+        const itemName = row['Item Name'].trim().toLowerCase()
+        const item = items.find(i => i.name.toLowerCase() === itemName)
         if (!item) {
           throw new Error(`Item not found: "${row['Item Name']}". Please create it first.`)
         }
 
-        const location = locationsList.find(l => l.name.toLowerCase() === row['Location Name'].toLowerCase())
-        if (!location) {
-          throw new Error(`Location not found: "${row['Location Name']}". Please create it first.`)
+        const locationNameRaw = row['Location Name'].trim()
+        const locationName = locationNameRaw.toLowerCase()
+        
+        let locationId: string
+        if (locationMap.has(locationName)) {
+          locationId = locationMap.get(locationName)!
+        } else {
+          setProgress(`Creating new location: ${locationNameRaw}...`)
+          const newLoc = await createLocationMutation.mutateAsync({
+            name: locationNameRaw,
+            description: 'Auto-created during bulk import',
+            parent_id: null
+          })
+          locationId = newLoc.id
+          locationMap.set(locationName, newLoc.id)
         }
 
-        // Fetch max copy number if not already tracked
         if (!maxCopyNumMap.has(item.id)) {
           const { supabase } = await import('@/services/supabase')
           const { data } = await supabase
@@ -123,13 +130,16 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
         const newCopyNum = currentMax + 1
         maxCopyNumMap.set(item.id, newCopyNum)
 
+        const conditionStr = row['Condition']?.trim().toLowerCase() || 'good'
+        const statusStr = row['Status']?.trim().toLowerCase() || 'available'
+
         copiesToInsert.push({
           item_id: item.id,
-          location_id: location.id,
+          location_id: locationId,
           copy_number: newCopyNum,
-          condition: (row['Condition']?.toLowerCase() || 'good') as any,
+          condition: conditionStr as any,
+          status: statusStr as any,
           notes: row['Notes'] || '',
-          status: 'available' as any,
           asset_tag: null,
           acquisition_date: null
         })
@@ -144,7 +154,6 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
 
       toast.success(`Successfully imported ${insertedCopies.length} copies and generated their QR codes.`)
       
-      // Reset state
       setFile(null)
       setParsedRows([])
       onClose()
@@ -210,11 +219,10 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
               </button>
             </div>
 
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex gap-3 text-sm text-amber-600">
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 flex gap-3 text-sm text-blue-600">
               <AlertTriangle className="size-5 shrink-0" />
               <p>
-                Please ensure all Items and Locations mentioned in your CSV already exist in the system. 
-                Missing entries will cause the import to fail.
+                Any new <strong>Locations</strong> found in your CSV will be automatically created. However, the overarching <strong>Items</strong> must already exist in the system before you can import physical copies of them!
               </p>
             </div>
           </div>

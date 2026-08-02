@@ -1,9 +1,9 @@
 import { useState, useRef } from 'react'
 import Papa from 'papaparse'
-import { Upload, X, FileCheck2, AlertTriangle, Play, Download } from 'lucide-react'
+import { Upload, X, FileCheck2, Play, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { Modal } from '@/components/ui/Modal'
-import { useCategories, useBulkCreateItems } from '../hooks/inventory.queries'
+import { useCategories, useCreateCategory, useBulkCreateItems } from '../hooks/inventory.queries'
 import type { ItemFormData } from '../services/inventory.service'
 
 interface BulkItemImportModalProps {
@@ -30,6 +30,7 @@ export function BulkItemImportModal({ open, onClose }: BulkItemImportModalProps)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: categories = [] } = useCategories()
+  const createCategoryMutation = useCreateCategory()
   const bulkCreateMutation = useBulkCreateItems()
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -76,18 +77,31 @@ export function BulkItemImportModal({ open, onClose }: BulkItemImportModalProps)
     try {
       const itemsToInsert: ItemFormData[] = []
       
+      const categoryMap = new Map<string, string>()
+      categories.forEach(c => categoryMap.set(c.name.toLowerCase(), c.id))
+
       for (const row of parsedRows) {
         if (!row['Name']) {
           throw new Error('All rows must have a Name.')
         }
 
         let categoryId: string | null = null
-        if (row['Category Name']) {
-          const cat = categories.find(c => c.name.toLowerCase() === row['Category Name']?.toLowerCase())
-          if (!cat) {
-            throw new Error(`Category not found: "${row['Category Name']}". Please create it first.`)
+        if (row['Category Name']?.trim()) {
+          const rawName = row['Category Name'].trim()
+          const csvCatName = rawName.toLowerCase()
+          
+          if (categoryMap.has(csvCatName)) {
+            categoryId = categoryMap.get(csvCatName)!
+          } else {
+            setProgress(`Creating new category: ${rawName}...`)
+            const newCat = await createCategoryMutation.mutateAsync({ 
+              name: rawName, 
+              description: 'Auto-created during bulk import',
+              parent_id: null 
+            })
+            categoryId = newCat.id
+            categoryMap.set(csvCatName, newCat.id)
           }
-          categoryId = cat.id
         }
 
         itemsToInsert.push({
@@ -174,11 +188,10 @@ export function BulkItemImportModal({ open, onClose }: BulkItemImportModalProps)
               </button>
             </div>
 
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex gap-3 text-sm text-amber-600">
-              <AlertTriangle className="size-5 shrink-0" />
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 flex gap-3 text-sm text-blue-600">
+              <FileCheck2 className="size-5 shrink-0" />
               <p>
-                Please ensure all Categories mentioned in your CSV already exist in the system. 
-                Missing categories will cause the import to fail.
+                Any new categories found in the CSV will be automatically created for you.
               </p>
             </div>
           </div>
