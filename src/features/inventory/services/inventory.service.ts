@@ -264,12 +264,22 @@ export async function updateCopy(id: string, formData: Partial<CopyFormData>): P
 }
 
 export async function softDeleteCopy(id: string): Promise<void> {
-  const { error } = await supabase
+  const timestamp = new Date().toISOString()
+
+  // 1. Soft delete the copy
+  const { error: copyError } = await supabase
     .from('inventory_copies')
-    .update({ deleted_at: new Date().toISOString() })
+    .update({ deleted_at: timestamp })
     .eq('id', id)
 
-  if (error) throw new InventoryServiceError(error.message, 'COPY_DELETE_FAILED')
+  if (copyError) throw new InventoryServiceError(copyError.message, 'COPY_DELETE_FAILED')
+
+  // 2. Soft delete and deactivate any associated QR codes
+  await supabase
+    .from('qr_codes')
+    .update({ deleted_at: timestamp, is_active: false })
+    .eq('copy_id', id)
+    .is('deleted_at', null)
 }
 
 // ============================================================================
