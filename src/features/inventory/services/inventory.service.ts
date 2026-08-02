@@ -74,7 +74,7 @@ export async function getItemById(id: string): Promise<InventoryItemWithCategory
     throw new InventoryServiceError(error.message, 'ITEM_FETCH_FAILED')
   }
 
-  return data as unknown as InventoryItemWithCategory
+  return data
 }
 
 export type ItemFormData = Omit<InventoryItem, 'id' | 'created_at' | 'updated_at' | 'deleted_at' | 'created_by' | 'updated_by'>
@@ -184,7 +184,7 @@ export async function createLocation(formData: LocationFormData): Promise<Locati
     .select()
 
   if (error) throw new InventoryServiceError(error.message, 'LOCATION_CREATE_FAILED')
-  return (data as Location[])[0] as Location
+  return (data as Location[])[0]!
 }
 
 export async function updateLocation(id: string, formData: Partial<LocationFormData>): Promise<Location> {

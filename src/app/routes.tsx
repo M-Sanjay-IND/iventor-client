@@ -3,7 +3,7 @@ import { LoginPage, ProtectedRoute, PublicRoute } from '@/features/auth'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { DashboardPage } from '@/features/dashboard'
 import { InventoryPage, ItemDetailPage, ItemFormPage } from '@/features/inventory'
-import { QrPage } from '@/features/qr'
+import { QrPage, QrDetailPage, PrintPage } from '@/features/qr'
 import { ReportsPage } from '@/features/reports'
 import { SettingsPage } from '@/features/settings'
 
@@ -41,7 +41,11 @@ export function AppRoutes() {
           <Route path="inventory/:id" element={<ItemDetailPage />} />
           <Route path="inventory/:id/edit" element={<ItemFormPage />} />
 
+          {/* QR sub-routes */}
           <Route path="qr" element={<QrPage />} />
+          <Route path="qr/print" element={<PrintPage />} />
+          <Route path="qr/:uid" element={<QrDetailPage />} />
+
           <Route path="reports" element={<ReportsPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

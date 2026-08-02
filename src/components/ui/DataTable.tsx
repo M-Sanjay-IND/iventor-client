@@ -11,7 +11,7 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-r
 import { PAGE_SIZE_OPTIONS } from '@/constants'
 
 interface DataTableProps<TData> {
-  columns: ColumnDef<TData, unknown>[]
+  columns: ColumnDef<TData>[]
   data: TData[]
   total?: number
   page?: number

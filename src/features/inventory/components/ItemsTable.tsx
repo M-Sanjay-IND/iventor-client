@@ -24,7 +24,7 @@ export function ItemsTable({
   onRowClick,
   loading,
 }: ItemsTableProps) {
-  const columns = useMemo<ColumnDef<InventoryItemWithCategory, unknown>[]>(
+  const columns = useMemo<ColumnDef<InventoryItemWithCategory>[]>(
     () => [
       {
         accessorKey: 'name',

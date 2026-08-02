@@ -52,7 +52,7 @@ This document outlines the phased implementation plan for the **Inventor Client*
 
 ---
 
-## ⚪ Phase 5: QR Code Management Engine
+## 🟢 Phase 5: QR Code Management Engine (COMPLETED)
 **Goal:** Implement the immutable QR identity system.
 *   **Database:** `qr_codes` table linking a unique UID (e.g., `INV-0001`) to an `inventory_copy`.
 *   **Generation:** Frontend/Edge Function logic to generate SVG/PNG QR codes.

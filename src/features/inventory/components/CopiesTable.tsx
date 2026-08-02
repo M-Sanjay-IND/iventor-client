@@ -28,7 +28,7 @@ interface CopiesTableProps {
 }
 
 export function CopiesTable({ data, loading, onEdit }: CopiesTableProps) {
-  const columns = useMemo<ColumnDef<InventoryCopy, unknown>[]>(
+  const columns = useMemo<ColumnDef<InventoryCopy>[]>(
     () => [
       {
         accessorKey: 'copy_number',

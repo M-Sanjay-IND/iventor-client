@@ -15,7 +15,7 @@ import {
   replaceQr,
   getQrLabels,
 } from '../services/qr.service'
-import type { QrCode, QrCodeWithRelations, QrLabel } from '../types'
+import type { QrCodeWithRelations } from '../types'
 
 // ============================================================================
 // Query Keys
@@ -100,8 +100,8 @@ export function useGenerateQr() {
   return useMutation({
     mutationFn: (copyId: string) => generateQrForCopy(copyId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qrKeys.all })
-      queryClient.invalidateQueries({ queryKey: qrKeys.unlinked })
+      void queryClient.invalidateQueries({ queryKey: qrKeys.all })
+      void queryClient.invalidateQueries({ queryKey: qrKeys.unlinked })
     },
   })
 }
@@ -112,8 +112,8 @@ export function useBulkGenerateQr() {
   return useMutation({
     mutationFn: (copyIds: string[]) => bulkGenerateQr(copyIds),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qrKeys.all })
-      queryClient.invalidateQueries({ queryKey: qrKeys.unlinked })
+      void queryClient.invalidateQueries({ queryKey: qrKeys.all })
+      void queryClient.invalidateQueries({ queryKey: qrKeys.unlinked })
     },
   })
 }
@@ -124,8 +124,8 @@ export function useReprintQr() {
   return useMutation({
     mutationFn: (qrId: string) => reprintQr(qrId),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: qrKeys.all })
-      queryClient.invalidateQueries({ queryKey: qrKeys.uid(data.qr_uid) })
+      void queryClient.invalidateQueries({ queryKey: qrKeys.all })
+      void queryClient.invalidateQueries({ queryKey: qrKeys.uid(data.qr_uid) })
     },
   })
 }
@@ -136,8 +136,8 @@ export function useReplaceQr() {
   return useMutation({
     mutationFn: (qrId: string) => replaceQr(qrId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qrKeys.all })
-      queryClient.invalidateQueries({ queryKey: qrKeys.unlinked })
+      void queryClient.invalidateQueries({ queryKey: qrKeys.all })
+      void queryClient.invalidateQueries({ queryKey: qrKeys.unlinked })
     },
   })
 }
