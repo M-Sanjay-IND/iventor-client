@@ -31,7 +31,7 @@ export function BulkGenerateModal({ open, onClose }: BulkGenerateModalProps) {
     if (selected.size === copies.length) {
       setSelected(new Set())
     } else {
-      setSelected(new Set(copies.map((c: Record<string, unknown>) => c.id as string)))
+      setSelected(new Set(copies.map((c: any) => c.id as string)))
     }
   }
 
@@ -82,7 +82,7 @@ export function BulkGenerateModal({ open, onClose }: BulkGenerateModalProps) {
 
           {/* Copy list */}
           <div className="max-h-72 space-y-1 overflow-y-auto">
-            {copies.map((copy: Record<string, unknown>) => {
+            {copies.map((copy: any) => {
               const id = copy.id as string
               const item = copy.item as Record<string, unknown> | null
               const itemName = (item?.name as string) ?? 'Unknown'

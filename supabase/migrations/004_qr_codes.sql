@@ -136,28 +136,28 @@ ALTER TABLE public.qr_uid_sequence ENABLE ROW LEVEL SECURITY;
 -- Admins can read all QR codes
 CREATE POLICY "admins_select_qr_codes" ON public.qr_codes
   FOR SELECT TO authenticated
-  USING (public.has_role(auth.uid()));
+  USING (public.has_role('super_admin') OR public.has_role('admin'));
 
 -- Admins can insert QR codes
 CREATE POLICY "admins_insert_qr_codes" ON public.qr_codes
   FOR INSERT TO authenticated
-  WITH CHECK (public.has_role(auth.uid()));
+  WITH CHECK (public.has_role('super_admin') OR public.has_role('admin'));
 
 -- Admins can update QR codes (reprint, replace)
 CREATE POLICY "admins_update_qr_codes" ON public.qr_codes
   FOR UPDATE TO authenticated
-  USING (public.has_role(auth.uid()))
-  WITH CHECK (public.has_role(auth.uid()));
+  USING (public.has_role('super_admin') OR public.has_role('admin'))
+  WITH CHECK (public.has_role('super_admin') OR public.has_role('admin'));
 
 -- Sequence table: admins only
 CREATE POLICY "admins_select_qr_sequence" ON public.qr_uid_sequence
   FOR SELECT TO authenticated
-  USING (public.has_role(auth.uid()));
+  USING (public.has_role('super_admin') OR public.has_role('admin'));
 
 CREATE POLICY "admins_update_qr_sequence" ON public.qr_uid_sequence
   FOR UPDATE TO authenticated
-  USING (public.has_role(auth.uid()))
-  WITH CHECK (public.has_role(auth.uid()));
+  USING (public.has_role('super_admin') OR public.has_role('admin'))
+  WITH CHECK (public.has_role('super_admin') OR public.has_role('admin'));
 
 -- ============================================================================
 -- GRANTS
