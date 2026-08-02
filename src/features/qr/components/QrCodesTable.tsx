@@ -1,6 +1,6 @@
 /* eslint-disable */
 import { useMemo } from 'react'
-import { type ColumnDef } from '@tanstack/react-table'
+import { type ColumnDef, type RowSelectionState, type OnChangeFn } from '@tanstack/react-table'
 import { format } from 'date-fns'
 import { DataTable } from '@/components/ui/DataTable'
 import type { QrCodeWithRelations } from '../types'
@@ -19,6 +19,8 @@ interface QrCodesTableProps {
   onPageSizeChange: (size: number) => void
   onRowClick?: (qr: QrCodeWithRelations) => void
   loading?: boolean
+  rowSelection?: RowSelectionState
+  onRowSelectionChange?: OnChangeFn<RowSelectionState>
 }
 
 export function QrCodesTable({
@@ -30,9 +32,35 @@ export function QrCodesTable({
   onPageSizeChange,
   onRowClick,
   loading,
+  rowSelection,
+  onRowSelectionChange,
 }: QrCodesTableProps) {
   const columns = useMemo<ColumnDef<QrCodeWithRelations>[]>(
     () => [
+      {
+        id: 'selection',
+        header: ({ table }) => (
+          <input
+            type="checkbox"
+            className="size-4 rounded border-border accent-primary"
+            checked={table.getIsAllRowsSelected()}
+            ref={(input) => {
+              if (input) input.indeterminate = table.getIsSomeRowsSelected()
+            }}
+            onChange={table.getToggleAllRowsSelectedHandler()}
+          />
+        ),
+        cell: ({ row }) => (
+          <input
+            type="checkbox"
+            className="size-4 rounded border-border accent-primary"
+            checked={row.getIsSelected()}
+            onChange={row.getToggleSelectedHandler()}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+        size: 40,
+      },
       {
         accessorKey: 'qr_uid',
         header: 'QR UID',
@@ -124,6 +152,9 @@ export function QrCodesTable({
       onPageSizeChange={onPageSizeChange}
       onRowClick={onRowClick}
       loading={loading}
+      enableSelection={true}
+      rowSelection={rowSelection}
+      onRowSelectionChange={onRowSelectionChange}
       emptyMessage="No QR codes generated yet."
     />
   )

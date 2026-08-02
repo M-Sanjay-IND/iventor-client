@@ -14,9 +14,11 @@ export function QrPage() {
   const [search, setSearch] = useState('')
   const [activeOnly, setActiveOnly] = useState(true)
   const [bulkModalOpen, setBulkModalOpen] = useState(false)
-  const [selectedIds] = useState<string[]>([])
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
 
   const { data, isLoading } = useQrCodes({ page, pageSize, search, activeOnly })
+
+  const selectedIds = Object.keys(rowSelection)
 
   function handleRowClick(qr: QrCodeWithRelations) {
     void navigate(`/admin/qr/${qr.qr_uid}`)
@@ -101,6 +103,8 @@ export function QrPage() {
         onPageSizeChange={(size) => setPageSize(size)}
         onRowClick={handleRowClick}
         loading={isLoading}
+        rowSelection={rowSelection}
+        onRowSelectionChange={setRowSelection}
       />
 
       {/* Modals */}
