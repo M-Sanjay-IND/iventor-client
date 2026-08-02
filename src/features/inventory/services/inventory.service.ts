@@ -90,6 +90,16 @@ export async function createItem(formData: ItemFormData): Promise<InventoryItem>
   return data as InventoryItem
 }
 
+export async function bulkCreateItems(items: ItemFormData[]): Promise<InventoryItem[]> {
+  const { data, error } = await supabase
+    .from('inventory_items')
+    .insert(items)
+    .select()
+
+  if (error) throw new InventoryServiceError(error.message, 'ITEM_BULK_CREATE_FAILED')
+  return data as InventoryItem[]
+}
+
 export async function updateItem(id: string, formData: Partial<ItemFormData>): Promise<InventoryItem> {
   const { data, error } = await supabase
     .from('inventory_items')

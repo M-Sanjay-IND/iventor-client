@@ -3,6 +3,7 @@ import {
   getItems,
   getItemById,
   createItem,
+  bulkCreateItems,
   updateItem,
   softDeleteItem,
   getCategories,
@@ -94,6 +95,17 @@ export function useUpdateItem() {
     onSuccess: (_result, variables) => {
       void queryClient.invalidateQueries({ queryKey: inventoryKeys.items() })
       void queryClient.invalidateQueries({ queryKey: inventoryKeys.itemDetail(variables.id) })
+    },
+  })
+}
+
+export function useBulkCreateItems() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (items: ItemFormData[]) => bulkCreateItems(items),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: inventoryKeys.items() })
     },
   })
 }

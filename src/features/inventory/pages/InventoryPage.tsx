@@ -6,6 +6,7 @@ import { ItemsTable } from '../components/ItemsTable'
 import { CategoryManager } from '../components/CategoryManager'
 import { LocationManager } from '../components/LocationManager'
 import { BulkImportModal } from '../components/BulkImportModal'
+import { BulkItemImportModal } from '../components/BulkItemImportModal'
 import { DEFAULT_PAGE_SIZE } from '@/constants'
 import type { InventoryItemWithCategory } from '../types'
 
@@ -19,6 +20,7 @@ export function InventoryPage() {
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false)
   const [locationManagerOpen, setLocationManagerOpen] = useState(false)
   const [bulkImportOpen, setBulkImportOpen] = useState(false)
+  const [bulkItemImportOpen, setBulkItemImportOpen] = useState(false)
 
   const { data: categories = [] } = useCategories()
   const { data, isLoading } = useItems({
@@ -45,6 +47,14 @@ export function InventoryPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setBulkItemImportOpen(true)}
+            className="flex items-center gap-1.5 rounded-md border border-border bg-transparent px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <UploadCloud className="size-4" />
+            Bulk Import Items
+          </button>
           <button
             type="button"
             onClick={() => setBulkImportOpen(true)}
@@ -133,6 +143,7 @@ export function InventoryPage() {
       <CategoryManager open={categoryManagerOpen} onClose={() => setCategoryManagerOpen(false)} />
       <LocationManager open={locationManagerOpen} onClose={() => setLocationManagerOpen(false)} />
       <BulkImportModal open={bulkImportOpen} onClose={() => setBulkImportOpen(false)} />
+      <BulkItemImportModal open={bulkItemImportOpen} onClose={() => setBulkItemImportOpen(false)} />
     </div>
   )
 }
