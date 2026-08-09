@@ -138,7 +138,7 @@ export function CounterPage() {
   if (terminalLoading) {
     return (
       <div className="flex items-center justify-center p-12">
-        <Spinner size="lg" />
+        <Spinner className="size-8 text-primary" />
       </div>
     )
   }

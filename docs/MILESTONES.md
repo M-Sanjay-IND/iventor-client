@@ -62,12 +62,13 @@ This document outlines the phased implementation plan for the **Inventor Client*
 
 ---
 
-## ⚪ Phase 6: Counter Terminal (Borrower Interface)
+## 🟢 Phase 6: Counter Terminal (COMPLETED)
 **Goal:** Build the restricted, touch-friendly interface for checking items in/out.
-*   **Borrower Auth:** OTP-based temporary session via institutional email (no persistent profile).
+*   **Admin Control:** Admin-gated terminal open/close with daily audit logging.
+*   **Borrower Auth:** OTP-based temporary session via institutional email (configurable domain restriction via env).
 *   **UI/UX:** Large, high-contrast, touch-optimized layout (Borrow & Return modes).
-*   **Hardware Integration:** Prepare input fields for USB/Bluetooth QR Scanners.
-*   **Flow:** Scan item QR -> Verify availability -> Confirm borrow -> Auto-expire session.
+*   **Hardware Integration:** USB/Bluetooth QR scanner auto-focused keyboard input.
+*   **Flow:** Admin Open -> Borrower OTP -> Scan item QR -> Verify availability -> Confirm borrow/return -> Auto-expire session -> Email receipt.
 
 ---
 

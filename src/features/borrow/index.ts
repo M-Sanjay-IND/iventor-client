@@ -1,5 +1,4 @@
-/**
- * borrow feature module.
- * Components, hooks, services, and types are exported from here.
- * Import from '@/features/borrow' — never reach into subfolders directly.
- */
+export * from './types';  
+export * from './services/borrow.service';  
+export * from './hooks/borrow.queries';  
+export * from './pages/CounterPage'; 

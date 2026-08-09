@@ -6,6 +6,7 @@ import {
   useOpenTerminal,
   useCloseTerminal,
   useTerminalHistory,
+  type TerminalSession,
 } from '@/features/borrow'
 
 export function SettingsPage() {
@@ -176,7 +177,7 @@ export function SettingsPage() {
                     </td>
                   </tr>
                 ) : (
-                  history.slice(0, 5).map((session) => (
+                  history.slice(0, 5).map((session: TerminalSession) => (
                     <tr key={session.id} className="hover:bg-muted/30">
                       <td className="p-3">
                         <span
