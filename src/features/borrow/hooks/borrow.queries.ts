@@ -125,11 +125,13 @@ export function useBulkBorrowItems() {
       sessionToken,
       copyIds,
       dueDays,
+      qrUids,
     }: {
       sessionToken: string
-      copyIds: string[]
+      copyIds?: string[]
       dueDays?: number
-    }) => bulkBorrowCopies(sessionToken, copyIds, dueDays),
+      qrUids?: string[]
+    }) => bulkBorrowCopies(sessionToken, copyIds, dueDays, qrUids),
   })
 }
 
@@ -138,9 +140,11 @@ export function useBulkReturnItems() {
     mutationFn: ({
       sessionToken,
       copyIds,
+      qrUids,
     }: {
       sessionToken: string
-      copyIds: string[]
-    }) => bulkReturnCopies(sessionToken, copyIds),
+      copyIds?: string[]
+      qrUids?: string[]
+    }) => bulkReturnCopies(sessionToken, copyIds, qrUids),
   })
 }

@@ -43,14 +43,18 @@ export interface Transaction {
 
 export interface QrLookupResult {
   qr_uid: string
-  copy_id: string
-  copy_number: number
+  item_id: string
+  copy_id: string | null
+  copy_number?: number | null
   status: string
-  condition: string
+  condition?: string | null
   item_name: string
   item_description: string | null
   category_name: string | null
   location_name: string | null
+  total_copies: number
+  available_copies: number
+  borrowed_copies: number
 }
 
 export type CounterMode = 'borrow' | 'return'

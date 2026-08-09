@@ -110,7 +110,11 @@ export function CounterPage() {
   }
 
   // Handle confirmed bulk scan action (borrow or return)
-  async function handleConfirmBulkAction(copyIds: string[], items: QrLookupResult[]) {
+  async function handleConfirmBulkAction(
+    qrUids: string[],
+    copyIds: string[],
+    items: QrLookupResult[],
+  ) {
     if (!sessionToken) {
       toast.error('Session expired')
       handleEndSession()
@@ -122,16 +126,18 @@ export function CounterPage() {
       if (mode === 'borrow') {
         txs = await bulkBorrowMutation.mutateAsync({
           sessionToken,
-          copyIds,
+          copyIds: copyIds.length > 0 ? copyIds : undefined,
+          qrUids: qrUids.length > 0 ? qrUids : undefined,
           dueDays: COUNTER_DUE_DAYS,
         })
-        toast.success(`Successfully borrowed ${txs.length} ${txs.length === 1 ? 'item' : 'items'}!`)
+        toast.success(`Successfully borrowed ${txs.length} ${txs.length === 1 ? 'unit' : 'units'}!`)
       } else {
         txs = await bulkReturnMutation.mutateAsync({
           sessionToken,
-          copyIds,
+          copyIds: copyIds.length > 0 ? copyIds : undefined,
+          qrUids: qrUids.length > 0 ? qrUids : undefined,
         })
-        toast.success(`Successfully returned ${txs.length} ${txs.length === 1 ? 'item' : 'items'}!`)
+        toast.success(`Successfully returned ${txs.length} ${txs.length === 1 ? 'unit' : 'units'}!`)
       }
 
       setCompletedTransactions(txs)

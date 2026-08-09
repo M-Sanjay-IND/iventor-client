@@ -12,6 +12,10 @@
 -- Counter terminal never exposes administration.
 -- ============================================================================
 
+-- Make copy_id nullable and add item_id on qr_codes table for item-level QR codes
+ALTER TABLE public.qr_codes ALTER COLUMN copy_id DROP NOT NULL;
+ALTER TABLE public.qr_codes ADD COLUMN IF NOT EXISTS item_id UUID REFERENCES public.inventory_items(id) ON DELETE RESTRICT;
+
 -- ============================================================================
 -- TERMINAL SESSIONS (admin open/close)
 -- ============================================================================
@@ -344,15 +348,101 @@ END;
 $$;
 
 -- ============================================================================
--- RPC: borrow_copy(session_token, copy_id)
+-- RPC: lookup_qr_for_counter(qr_uid)
+-- ============================================================================
+
+DROP FUNCTION IF EXISTS public.lookup_qr_for_counter(TEXT);
+
+CREATE OR REPLACE FUNCTION public.lookup_qr_for_counter(p_qr_uid TEXT)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+DECLARE
+  v_result JSON;
+  v_qr_record RECORD;
+  v_item_id UUID;
+  v_copy_id UUID;
+  v_total_copies INT;
+  v_available_copies INT;
+  v_borrowed_copies INT;
+BEGIN
+  -- 1. Try lookup in qr_codes table (by qr_uid)
+  SELECT q.item_id, q.copy_id
+  INTO v_qr_record
+  FROM public.qr_codes q
+  WHERE q.qr_uid = p_qr_uid
+    AND q.is_active = true
+    AND q.deleted_at IS NULL;
+
+  IF FOUND THEN
+    v_item_id := v_qr_record.item_id;
+    v_copy_id := v_qr_record.copy_id;
+
+    -- If copy_id is set but item_id wasn't on QR row, resolve item_id from copy
+    IF v_item_id IS NULL AND v_copy_id IS NOT NULL THEN
+      SELECT item_id INTO v_item_id
+      FROM public.inventory_copies
+      WHERE id = v_copy_id AND deleted_at IS NULL;
+    END IF;
+  ELSE
+    -- 2. Fallback: check if qr_uid matches an item ID directly or item name
+    SELECT id INTO v_item_id
+    FROM public.inventory_items
+    WHERE (id::TEXT = p_qr_uid OR name ILIKE p_qr_uid)
+      AND deleted_at IS NULL;
+  END IF;
+
+  IF v_item_id IS NULL THEN
+    RAISE EXCEPTION 'QR code not found or inactive: %', p_qr_uid;
+  END IF;
+
+  -- Calculate stock metrics for this item
+  SELECT
+    COUNT(*),
+    COUNT(*) FILTER (WHERE status = 'available'),
+    COUNT(*) FILTER (WHERE status = 'borrowed')
+  INTO v_total_copies, v_available_copies, v_borrowed_copies
+  FROM public.inventory_copies
+  WHERE item_id = v_item_id AND deleted_at IS NULL;
+
+  -- Build result JSON for counter UI display
+  SELECT json_build_object(
+    'qr_uid', p_qr_uid,
+    'item_id', i.id,
+    'copy_id', v_copy_id,
+    'item_name', i.name,
+    'item_description', i.description,
+    'category_name', cat.name,
+    'status', CASE WHEN v_available_copies > 0 THEN 'available' ELSE 'borrowed' END,
+    'total_copies', v_total_copies,
+    'available_copies', v_available_copies,
+    'borrowed_copies', v_borrowed_copies
+  ) INTO v_result
+  FROM public.inventory_items i
+  LEFT JOIN public.categories cat ON cat.id = i.category_id
+  WHERE i.id = v_item_id;
+
+  RETURN v_result;
+END;
+$$;
+
+COMMENT ON FUNCTION public.lookup_qr_for_counter IS
+  'Looks up an item-level or copy-level QR UID and returns inventory stock details.';
+
+-- ============================================================================
+-- RPC: borrow_copy(session_token, copy_id, due_days, qr_uid)
 -- ============================================================================
 
 DROP FUNCTION IF EXISTS public.borrow_copy(UUID, UUID, INTEGER);
+DROP FUNCTION IF EXISTS public.borrow_copy(UUID, UUID, INTEGER, TEXT);
 
 CREATE OR REPLACE FUNCTION public.borrow_copy(
   p_session_token UUID,
-  p_copy_id UUID,
-  p_due_days INTEGER DEFAULT NULL
+  p_copy_id UUID DEFAULT NULL,
+  p_due_days INTEGER DEFAULT NULL,
+  p_qr_uid TEXT DEFAULT NULL
 )
 RETURNS public.transactions
 LANGUAGE plpgsql
@@ -360,7 +450,8 @@ SECURITY DEFINER
 AS $$
 DECLARE
   v_session public.borrower_sessions%ROWTYPE;
-  v_copy_status TEXT;
+  v_target_copy_id UUID;
+  v_item_id UUID;
   v_due_date TIMESTAMPTZ;
   v_transaction public.transactions%ROWTYPE;
 BEGIN
@@ -375,17 +466,40 @@ BEGIN
     RAISE EXCEPTION 'Invalid or expired session';
   END IF;
 
-  -- Check copy availability
-  SELECT status::TEXT INTO v_copy_status
-  FROM public.inventory_copies
-  WHERE id = p_copy_id AND deleted_at IS NULL;
+  IF p_copy_id IS NOT NULL THEN
+    v_target_copy_id := p_copy_id;
+  ELSIF p_qr_uid IS NOT NULL THEN
+    -- Resolve QR UID to item_id
+    SELECT item_id, copy_id INTO v_item_id, v_target_copy_id
+    FROM public.qr_codes
+    WHERE qr_uid = p_qr_uid AND is_active = true AND deleted_at IS NULL;
 
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Inventory copy not found';
-  END IF;
+    IF v_target_copy_id IS NULL AND v_item_id IS NULL THEN
+      SELECT id INTO v_item_id
+      FROM public.inventory_items
+      WHERE (id::TEXT = p_qr_uid OR name ILIKE p_qr_uid) AND deleted_at IS NULL;
+    END IF;
 
-  IF v_copy_status != 'available' THEN
-    RAISE EXCEPTION 'Item is not available for borrowing (current status: %)', v_copy_status;
+    IF v_target_copy_id IS NULL THEN
+      IF v_item_id IS NULL THEN
+        RAISE EXCEPTION 'Item not found for QR UID: %', p_qr_uid;
+      END IF;
+
+      -- Pick first available copy of this item
+      SELECT id INTO v_target_copy_id
+      FROM public.inventory_copies
+      WHERE item_id = v_item_id
+        AND status = 'available'
+        AND deleted_at IS NULL
+      ORDER BY copy_number ASC
+      LIMIT 1;
+
+      IF v_target_copy_id IS NULL THEN
+        RAISE EXCEPTION 'No available copies remaining for item %', p_qr_uid;
+      END IF;
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'Either copy_id or qr_uid must be provided';
   END IF;
 
   -- Calculate due date if configured
@@ -398,7 +512,7 @@ BEGIN
     type, copy_id, borrower_email, borrower_session_id,
     terminal_session_id, borrowed_at, due_date
   ) VALUES (
-    'borrow', p_copy_id, v_session.email, v_session.id,
+    'borrow', v_target_copy_id, v_session.email, v_session.id,
     v_session.terminal_id, now(), v_due_date
   )
   RETURNING * INTO v_transaction;
@@ -406,9 +520,9 @@ BEGIN
   -- Update copy status to borrowed
   UPDATE public.inventory_copies
   SET status = 'borrowed'
-  WHERE id = p_copy_id;
+  WHERE id = v_target_copy_id;
 
-  -- Refresh session expiry (extend by 10 more minutes for continued use)
+  -- Refresh session expiry
   UPDATE public.borrower_sessions
   SET expires_at = now() + interval '10 minutes'
   WHERE id = v_session.id;
@@ -418,14 +532,16 @@ END;
 $$;
 
 -- ============================================================================
--- RPC: return_copy(session_token, copy_id)
+-- RPC: return_copy(session_token, copy_id, qr_uid)
 -- ============================================================================
 
 DROP FUNCTION IF EXISTS public.return_copy(UUID, UUID);
+DROP FUNCTION IF EXISTS public.return_copy(UUID, UUID, TEXT);
 
 CREATE OR REPLACE FUNCTION public.return_copy(
   p_session_token UUID,
-  p_copy_id UUID
+  p_copy_id UUID DEFAULT NULL,
+  p_qr_uid TEXT DEFAULT NULL
 )
 RETURNS public.transactions
 LANGUAGE plpgsql
@@ -433,7 +549,8 @@ SECURITY DEFINER
 AS $$
 DECLARE
   v_session public.borrower_sessions%ROWTYPE;
-  v_copy_status TEXT;
+  v_target_copy_id UUID;
+  v_item_id UUID;
   v_transaction public.transactions%ROWTYPE;
 BEGIN
   -- Validate session
@@ -447,17 +564,41 @@ BEGIN
     RAISE EXCEPTION 'Invalid or expired session';
   END IF;
 
-  -- Check copy is borrowed
-  SELECT status::TEXT INTO v_copy_status
-  FROM public.inventory_copies
-  WHERE id = p_copy_id AND deleted_at IS NULL;
+  IF p_copy_id IS NOT NULL THEN
+    v_target_copy_id := p_copy_id;
+  ELSIF p_qr_uid IS NOT NULL THEN
+    -- Resolve QR UID to item_id or copy_id
+    SELECT item_id, copy_id INTO v_item_id, v_target_copy_id
+    FROM public.qr_codes
+    WHERE qr_uid = p_qr_uid AND is_active = true AND deleted_at IS NULL;
 
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Inventory copy not found';
-  END IF;
+    IF v_target_copy_id IS NULL AND v_item_id IS NULL THEN
+      SELECT id INTO v_item_id
+      FROM public.inventory_items
+      WHERE (id::TEXT = p_qr_uid OR name ILIKE p_qr_uid) AND deleted_at IS NULL;
+    END IF;
 
-  IF v_copy_status != 'borrowed' THEN
-    RAISE EXCEPTION 'Item is not currently borrowed (current status: %)', v_copy_status;
+    IF v_target_copy_id IS NULL THEN
+      IF v_item_id IS NULL THEN
+        RAISE EXCEPTION 'Item not found for QR UID: %', p_qr_uid;
+      END IF;
+
+      -- Pick first borrowed copy of this item
+      SELECT c.id INTO v_target_copy_id
+      FROM public.inventory_copies c
+      LEFT JOIN public.transactions t ON t.copy_id = c.id AND t.type = 'borrow' AND t.borrower_email = v_session.email
+      WHERE c.item_id = v_item_id
+        AND c.status = 'borrowed'
+        AND c.deleted_at IS NULL
+      ORDER BY t.created_at DESC NULLS LAST, c.updated_at DESC
+      LIMIT 1;
+
+      IF v_target_copy_id IS NULL THEN
+        RAISE EXCEPTION 'No borrowed copies found to return for item %', p_qr_uid;
+      END IF;
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'Either copy_id or qr_uid must be provided';
   END IF;
 
   -- Create return transaction
@@ -465,7 +606,7 @@ BEGIN
     type, copy_id, borrower_email, borrower_session_id,
     terminal_session_id, returned_at
   ) VALUES (
-    'return', p_copy_id, v_session.email, v_session.id,
+    'return', v_target_copy_id, v_session.email, v_session.id,
     v_session.terminal_id, now()
   )
   RETURNING * INTO v_transaction;
@@ -473,7 +614,7 @@ BEGIN
   -- Update copy status back to available
   UPDATE public.inventory_copies
   SET status = 'available'
-  WHERE id = p_copy_id;
+  WHERE id = v_target_copy_id;
 
   -- Refresh session expiry
   UPDATE public.borrower_sessions
@@ -485,15 +626,17 @@ END;
 $$;
 
 -- ============================================================================
--- RPC: bulk_borrow_copies(session_token, copy_ids, due_days)
+-- RPC: bulk_borrow_copies(session_token, copy_ids, due_days, qr_uids)
 -- ============================================================================
 
 DROP FUNCTION IF EXISTS public.bulk_borrow_copies(UUID, UUID[], INTEGER);
+DROP FUNCTION IF EXISTS public.bulk_borrow_copies(UUID, UUID[], INTEGER, TEXT[]);
 
 CREATE OR REPLACE FUNCTION public.bulk_borrow_copies(
   p_session_token UUID,
-  p_copy_ids UUID[],
-  p_due_days INTEGER DEFAULT NULL
+  p_copy_ids UUID[] DEFAULT NULL,
+  p_due_days INTEGER DEFAULT NULL,
+  p_qr_uids TEXT[] DEFAULT NULL
 )
 RETURNS SETOF public.transactions
 LANGUAGE plpgsql
@@ -501,24 +644,34 @@ SECURITY DEFINER
 AS $$
 DECLARE
   v_copy_id UUID;
+  v_qr_uid TEXT;
   v_tx public.transactions%ROWTYPE;
 BEGIN
-  FOREACH v_copy_id IN ARRAY p_copy_ids LOOP
-    v_tx := public.borrow_copy(p_session_token, v_copy_id, p_due_days);
-    RETURN NEXT v_tx;
-  END LOOP;
+  IF p_copy_ids IS NOT NULL AND array_length(p_copy_ids, 1) > 0 THEN
+    FOREACH v_copy_id IN ARRAY p_copy_ids LOOP
+      v_tx := public.borrow_copy(p_session_token, v_copy_id, p_due_days);
+      RETURN NEXT v_tx;
+    END LOOP;
+  ELSIF p_qr_uids IS NOT NULL AND array_length(p_qr_uids, 1) > 0 THEN
+    FOREACH v_qr_uid IN ARRAY p_qr_uids LOOP
+      v_tx := public.borrow_copy(p_session_token, NULL, p_due_days, v_qr_uid);
+      RETURN NEXT v_tx;
+    END LOOP;
+  END IF;
 END;
 $$;
 
 -- ============================================================================
--- RPC: bulk_return_copies(session_token, copy_ids)
+-- RPC: bulk_return_copies(session_token, copy_ids, qr_uids)
 -- ============================================================================
 
 DROP FUNCTION IF EXISTS public.bulk_return_copies(UUID, UUID[]);
+DROP FUNCTION IF EXISTS public.bulk_return_copies(UUID, UUID[], TEXT[]);
 
 CREATE OR REPLACE FUNCTION public.bulk_return_copies(
   p_session_token UUID,
-  p_copy_ids UUID[]
+  p_copy_ids UUID[] DEFAULT NULL,
+  p_qr_uids TEXT[] DEFAULT NULL
 )
 RETURNS SETOF public.transactions
 LANGUAGE plpgsql
@@ -526,57 +679,20 @@ SECURITY DEFINER
 AS $$
 DECLARE
   v_copy_id UUID;
+  v_qr_uid TEXT;
   v_tx public.transactions%ROWTYPE;
 BEGIN
-  FOREACH v_copy_id IN ARRAY p_copy_ids LOOP
-    v_tx := public.return_copy(p_session_token, v_copy_id);
-    RETURN NEXT v_tx;
-  END LOOP;
-END;
-$$;
-
--- ============================================================================
--- RPC: lookup_qr_for_counter(qr_uid)
--- ============================================================================
-
-DROP FUNCTION IF EXISTS public.lookup_qr_for_counter(TEXT);
-
-CREATE OR REPLACE FUNCTION public.lookup_qr_for_counter(p_qr_uid TEXT)
-RETURNS JSON
-LANGUAGE plpgsql
-SECURITY DEFINER
-STABLE
-AS $$
-DECLARE
-  v_result JSON;
-BEGIN
-  SELECT json_build_object(
-    'qr_uid', q.qr_uid,
-    'copy_id', c.id,
-    'copy_number', c.copy_number,
-    'status', c.status,
-    'condition', c.condition,
-    'item_name', i.name,
-    'item_description', i.description,
-    'category_name', cat.name,
-    'location_name', loc.name
-  ) INTO v_result
-  FROM public.qr_codes q
-  JOIN public.inventory_copies c ON c.id = q.copy_id
-  JOIN public.inventory_items i ON i.id = c.item_id
-  LEFT JOIN public.categories cat ON cat.id = i.category_id
-  LEFT JOIN public.locations loc ON loc.id = c.location_id
-  WHERE q.qr_uid = p_qr_uid
-    AND q.is_active = true
-    AND q.deleted_at IS NULL
-    AND c.deleted_at IS NULL
-    AND i.deleted_at IS NULL;
-
-  IF v_result IS NULL THEN
-    RAISE EXCEPTION 'QR code not found or inactive: %', p_qr_uid;
+  IF p_copy_ids IS NOT NULL AND array_length(p_copy_ids, 1) > 0 THEN
+    FOREACH v_copy_id IN ARRAY p_copy_ids LOOP
+      v_tx := public.return_copy(p_session_token, v_copy_id);
+      RETURN NEXT v_tx;
+    END LOOP;
+  ELSIF p_qr_uids IS NOT NULL AND array_length(p_qr_uids, 1) > 0 THEN
+    FOREACH v_qr_uid IN ARRAY p_qr_uids LOOP
+      v_tx := public.return_copy(p_session_token, NULL, v_qr_uid);
+      RETURN NEXT v_tx;
+    END LOOP;
   END IF;
-
-  RETURN v_result;
 END;
 $$;
 

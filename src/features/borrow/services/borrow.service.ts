@@ -113,13 +113,15 @@ export async function returnCopy(
 
 export async function bulkBorrowCopies(
   sessionToken: string,
-  copyIds: string[],
+  copyIds?: string[],
   dueDays?: number,
+  qrUids?: string[],
 ): Promise<Transaction[]> {
   const { data, error } = await supabase.rpc('bulk_borrow_copies', {
     p_session_token: sessionToken,
-    p_copy_ids: copyIds,
+    p_copy_ids: copyIds && copyIds.length > 0 ? copyIds : null,
     p_due_days: dueDays && dueDays > 0 ? dueDays : null,
+    p_qr_uids: qrUids && qrUids.length > 0 ? qrUids : null,
   })
 
   if (error) throw new BorrowServiceError(error.message, 'BULK_BORROW_FAILED')
@@ -128,11 +130,13 @@ export async function bulkBorrowCopies(
 
 export async function bulkReturnCopies(
   sessionToken: string,
-  copyIds: string[],
+  copyIds?: string[],
+  qrUids?: string[],
 ): Promise<Transaction[]> {
   const { data, error } = await supabase.rpc('bulk_return_copies', {
     p_session_token: sessionToken,
-    p_copy_ids: copyIds,
+    p_copy_ids: copyIds && copyIds.length > 0 ? copyIds : null,
+    p_qr_uids: qrUids && qrUids.length > 0 ? qrUids : null,
   })
 
   if (error) throw new BorrowServiceError(error.message, 'BULK_RETURN_FAILED')

@@ -5,7 +5,7 @@ import { useLookupQr } from '../hooks/borrow.queries'
 
 interface ScannerInputProps {
   mode: CounterMode
-  onConfirmBulkAction: (copyIds: string[], items: QrLookupResult[]) => Promise<void>
+  onConfirmBulkAction: (qrUids: string[], copyIds: string[], items: QrLookupResult[]) => Promise<void>
   onBack: () => void
   loading: boolean
 }
@@ -35,30 +35,32 @@ export function ScannerInput({
 
     setErrorMsg(null)
 
-    // Check if already in cart
-    if (cart.some((item) => item.qr_uid === trimmedUid)) {
-      setErrorMsg(`Item "${trimmedUid}" is already in your list.`)
-      setInputVal('')
-      return
-    }
-
     try {
       const item = await lookupMutation.mutateAsync(trimmedUid)
 
-      // Status validation
-      if (isBorrow && item.status !== 'available') {
-        setErrorMsg(`Cannot borrow "${item.item_name}": item status is "${item.status}"`)
-        setInputVal('')
-        return
+      // Count how many of this item QR are already in the cart
+      const currentCartCount = cart.filter((c) => c.qr_uid === item.qr_uid).length
+
+      // Stock validation
+      if (isBorrow) {
+        if (item.available_copies <= currentCartCount) {
+          setErrorMsg(
+            `Cannot add more "${item.item_name}": only ${item.available_copies} available copy remaining.`,
+          )
+          setInputVal('')
+          return
+        }
+      } else {
+        if (item.borrowed_copies <= currentCartCount) {
+          setErrorMsg(
+            `Cannot add more "${item.item_name}": only ${item.borrowed_copies} borrowed copy available to return.`,
+          )
+          setInputVal('')
+          return
+        }
       }
 
-      if (!isBorrow && item.status !== 'borrowed') {
-        setErrorMsg(`Cannot return "${item.item_name}": item status is "${item.status}"`)
-        setInputVal('')
-        return
-      }
-
-      // Add to cart and clear input for next scan
+      // Add item to cart list
       setCart((prev) => [...prev, item])
       setInputVal('')
     } catch (err) {
@@ -74,16 +76,19 @@ export function ScannerInput({
     }
   }
 
-  function handleRemoveItem(copyId: string) {
-    setCart((prev) => prev.filter((item) => item.copy_id !== copyId))
+  function handleRemoveItem(index: number) {
+    setCart((prev) => prev.filter((_, idx) => idx !== index))
   }
 
   async function handleConfirmBulk() {
     if (cart.length === 0 || loading) return
     setErrorMsg(null)
-    const copyIds = cart.map((item) => item.copy_id)
+
+    const qrUids = cart.map((item) => item.qr_uid)
+    const copyIds = cart.map((item) => item.copy_id).filter(Boolean) as string[]
+
     try {
-      await onConfirmBulkAction(copyIds, cart)
+      await onConfirmBulkAction(qrUids, copyIds, cart)
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Batch transaction failed')
     }
@@ -130,7 +135,7 @@ export function ScannerInput({
           value={inputVal}
           onChange={(e) => setInputVal(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Scan QR code continuously..."
+          placeholder="Scan Item QR code continuously..."
           disabled={loading || lookupMutation.isPending}
           className="h-14 w-full rounded-xl border border-border bg-card pl-12 pr-28 text-lg font-mono text-foreground placeholder:font-sans placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
         />
@@ -167,7 +172,7 @@ export function ScannerInput({
             </h3>
           </div>
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-            {cart.length} {cart.length === 1 ? 'item' : 'items'}
+            {cart.length} {cart.length === 1 ? 'unit' : 'units'}
           </span>
         </div>
 
@@ -177,9 +182,9 @@ export function ScannerInput({
           </div>
         ) : (
           <div className="divide-y divide-border/50 max-h-64 overflow-y-auto">
-            {cart.map((item) => (
+            {cart.map((item, idx) => (
               <div
-                key={item.copy_id}
+                key={`${item.qr_uid}-${idx}`}
                 className="flex items-center justify-between py-3 hover:bg-muted/30 px-2 rounded-lg"
               >
                 <div>
@@ -190,14 +195,15 @@ export function ScannerInput({
                     {item.item_name}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Copy #{item.copy_number} • {item.location_name || 'No Location'}
+                    {item.category_name ? `${item.category_name} • ` : ''}
+                    Available Stock: {item.available_copies} / {item.total_copies}
                   </p>
                 </div>
 
                 <button
-                  onClick={() => handleRemoveItem(item.copy_id)}
+                  onClick={() => handleRemoveItem(idx)}
                   disabled={loading}
-                  title="Remove from list"
+                  title="Remove unit from list"
                   className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
                 >
                   <Trash2 className="size-4" />
@@ -224,7 +230,7 @@ export function ScannerInput({
               <>
                 <CheckCircle2 className="size-6" />
                 Confirm {isBorrow ? 'Borrow' : 'Return'} ({cart.length}{' '}
-                {cart.length === 1 ? 'Item' : 'Items'})
+                {cart.length === 1 ? 'Unit' : 'Units'})
               </>
             )}
           </button>
