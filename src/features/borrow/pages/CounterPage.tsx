@@ -198,6 +198,7 @@ export function CounterPage() {
       {step === 'scanner' && (
         <ScannerInput
           mode={mode}
+          sessionToken={sessionToken}
           onConfirmBulkAction={handleConfirmBulkAction}
           onBack={() => setStep('mode')}
           loading={bulkBorrowMutation.isPending || bulkReturnMutation.isPending}

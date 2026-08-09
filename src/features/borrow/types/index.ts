@@ -65,3 +65,17 @@ export type SessionState =
   | 'otp_verifying'
   | 'active'
   | 'expired'
+
+export interface ActiveLoan {
+  transaction_id: string
+  copy_id: string
+  copy_number: number
+  borrowed_at: string
+  due_date: string | null
+  item_id: string
+  item_name: string
+  item_description: string | null
+  category_name: string | null
+  location_name: string | null
+  qr_uid: string
+}

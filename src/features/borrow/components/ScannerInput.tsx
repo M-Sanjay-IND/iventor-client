@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
-import { QrCode, Search, CheckCircle2, AlertCircle, ArrowLeft, Loader2, Trash2, ShoppingBag } from 'lucide-react'
-import type { CounterMode, QrLookupResult } from '../types'
-import { useLookupQr } from '../hooks/borrow.queries'
+import { QrCode, Search, CheckCircle2, AlertCircle, ArrowLeft, Loader2, Trash2, ShoppingBag, PackageCheck, Plus, Check } from 'lucide-react'
+import type { CounterMode, QrLookupResult, ActiveLoan } from '../types'
+import { useLookupQr, useBorrowerActiveLoans } from '../hooks/borrow.queries'
 
 interface ScannerInputProps {
   mode: CounterMode
+  sessionToken: string | null
   onConfirmBulkAction: (qrUids: string[], copyIds: string[], items: QrLookupResult[]) => Promise<void>
   onBack: () => void
   loading: boolean
@@ -12,6 +13,7 @@ interface ScannerInputProps {
 
 export function ScannerInput({
   mode,
+  sessionToken,
   onConfirmBulkAction,
   onBack,
   loading,
@@ -23,6 +25,11 @@ export function ScannerInput({
 
   const lookupMutation = useLookupQr()
   const isBorrow = mode === 'borrow'
+
+  // Fetch active loans if in Return mode
+  const { data: activeLoans = [], isLoading: loadingActiveLoans } = useBorrowerActiveLoans(
+    !isBorrow ? sessionToken : null,
+  )
 
   // Keep input focused for rapid scanner input
   useEffect(() => {
@@ -80,6 +87,49 @@ export function ScannerInput({
     setCart((prev) => prev.filter((_, idx) => idx !== index))
   }
 
+  function handleAddActiveLoanToCart(loan: ActiveLoan) {
+    // Check if copy_id is already in cart
+    if (cart.some((c) => c.copy_id === loan.copy_id)) return
+
+    const item: QrLookupResult = {
+      qr_uid: loan.qr_uid,
+      item_id: loan.item_id,
+      copy_id: loan.copy_id,
+      copy_number: loan.copy_number,
+      status: 'borrowed',
+      item_name: loan.item_name,
+      item_description: loan.item_description,
+      category_name: loan.category_name,
+      location_name: loan.location_name,
+      total_copies: 1,
+      available_copies: 0,
+      borrowed_copies: 1,
+    }
+
+    setCart((prev) => [...prev, item])
+  }
+
+  function handleAddAllActiveLoansToCart() {
+    const unaddedLoans = activeLoans.filter((loan) => !cart.some((c) => c.copy_id === loan.copy_id))
+
+    const newItems: QrLookupResult[] = unaddedLoans.map((loan) => ({
+      qr_uid: loan.qr_uid,
+      item_id: loan.item_id,
+      copy_id: loan.copy_id,
+      copy_number: loan.copy_number,
+      status: 'borrowed',
+      item_name: loan.item_name,
+      item_description: loan.item_description,
+      category_name: loan.category_name,
+      location_name: loan.location_name,
+      total_copies: 1,
+      available_copies: 0,
+      borrowed_copies: 1,
+    }))
+
+    setCart((prev) => [...prev, ...newItems])
+  }
+
   async function handleConfirmBulk() {
     if (cart.length === 0 || loading) return
     setErrorMsg(null)
@@ -118,11 +168,89 @@ export function ScannerInput({
       </div>
 
       <h2 className="text-2xl font-bold tracking-tight text-foreground text-center">
-        Scan Items
+        {isBorrow ? 'Scan Items to Borrow' : 'Return Items'}
       </h2>
       <p className="mt-1 text-sm text-muted-foreground text-center mb-6">
-        Scan barcodes continuously to add items to your list
+        {isBorrow
+          ? 'Scan barcodes continuously to add items to your borrow list'
+          : 'Select from your currently borrowed items or scan barcodes to return'}
       </p>
+
+      {/* Active Loans Section (Return Mode Only) */}
+      {!isBorrow && (
+        <div className="w-full mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-emerald-500/20 pb-3">
+            <div className="flex items-center gap-2">
+              <PackageCheck className="size-5 text-emerald-600" />
+              <h3 className="text-base font-semibold text-foreground">
+                Your Currently Borrowed Items
+              </h3>
+            </div>
+            {activeLoans.length > 0 && (
+              <button
+                onClick={handleAddAllActiveLoansToCart}
+                disabled={loading || activeLoans.every((loan) => cart.some((c) => c.copy_id === loan.copy_id))}
+                className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-500/10 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
+              >
+                + Add All to Return Cart ({activeLoans.length})
+              </button>
+            )}
+          </div>
+
+          {loadingActiveLoans ? (
+            <div className="py-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin text-emerald-600" />
+              Loading your active loans...
+            </div>
+          ) : activeLoans.length === 0 ? (
+            <div className="py-4 text-center text-sm text-muted-foreground">
+              You currently have no active borrowed items.
+            </div>
+          ) : (
+            <div className="divide-y divide-emerald-500/10 max-h-56 overflow-y-auto pr-1 space-y-1">
+              {activeLoans.map((loan) => {
+                const isAdded = cart.some((c) => c.copy_id === loan.copy_id)
+                return (
+                  <div
+                    key={loan.transaction_id}
+                    className="flex items-center justify-between py-2.5 px-2 hover:bg-emerald-500/10 rounded-lg transition-colors"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        {loan.item_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Copy #{loan.copy_number} • {loan.category_name || 'Item'} • Borrowed:{' '}
+                        {new Date(loan.borrowed_at).toLocaleDateString()}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => handleAddActiveLoanToCart(loan)}
+                      disabled={isAdded || loading}
+                      className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                        isAdded
+                          ? 'bg-emerald-500/20 text-emerald-700 cursor-default'
+                          : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                      }`}
+                    >
+                      {isAdded ? (
+                        <>
+                          <Check className="size-3.5" /> Added
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="size-3.5" /> Add to Return
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Scanner / Manual Search Input */}
       <div className="relative w-full mb-6">
@@ -168,7 +296,7 @@ export function ScannerInput({
           <div className="flex items-center gap-2">
             <ShoppingBag className="size-5 text-primary" />
             <h3 className="text-base font-semibold text-foreground">
-              Scanned Items List
+              {isBorrow ? 'Scanned Borrow List' : 'Items to Return'}
             </h3>
           </div>
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
@@ -178,7 +306,9 @@ export function ScannerInput({
 
         {cart.length === 0 ? (
           <div className="py-8 text-center text-sm text-muted-foreground">
-            No items scanned yet. Point scanner at a barcode to begin.
+            {isBorrow
+              ? 'No items scanned yet. Point scanner at a barcode to begin.'
+              : 'No items selected for return. Click "+ Add to Return" above or scan a barcode.'}
           </div>
         ) : (
           <div className="divide-y divide-border/50 max-h-64 overflow-y-auto">
@@ -196,7 +326,7 @@ export function ScannerInput({
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {item.category_name ? `${item.category_name} • ` : ''}
-                    Available Stock: {item.available_copies} / {item.total_copies}
+                    {item.copy_number ? `Copy #${item.copy_number}` : `Stock: ${item.available_copies} / ${item.total_copies}`}
                   </p>
                 </div>
 

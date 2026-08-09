@@ -1,5 +1,5 @@
 import { supabase } from '@/services/supabase'
-import type { TerminalSession, Transaction, QrLookupResult } from '../types'
+import type { TerminalSession, Transaction, QrLookupResult, ActiveLoan } from '../types'
 
 // ============================================================================
 // Terminal Management
@@ -141,6 +141,15 @@ export async function bulkReturnCopies(
 
   if (error) throw new BorrowServiceError(error.message, 'BULK_RETURN_FAILED')
   return (data ?? []) as Transaction[]
+}
+
+export async function getBorrowerActiveLoans(sessionToken: string): Promise<ActiveLoan[]> {
+  const { data, error } = await supabase.rpc('get_borrower_active_loans', {
+    p_session_token: sessionToken,
+  })
+
+  if (error) throw new BorrowServiceError(error.message, 'ACTIVE_LOANS_FETCH_FAILED')
+  return (data ?? []) as ActiveLoan[]
 }
 
 // ============================================================================

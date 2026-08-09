@@ -432,6 +432,75 @@ COMMENT ON FUNCTION public.lookup_qr_for_counter IS
   'Looks up an item-level or copy-level QR UID and returns inventory stock details.';
 
 -- ============================================================================
+-- RPC: get_borrower_active_loans(session_token)
+-- ============================================================================
+
+DROP FUNCTION IF EXISTS public.get_borrower_active_loans(UUID);
+
+CREATE OR REPLACE FUNCTION public.get_borrower_active_loans(p_session_token UUID)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+DECLARE
+  v_session public.borrower_sessions%ROWTYPE;
+  v_result JSON;
+BEGIN
+  -- Validate session
+  SELECT * INTO v_session
+  FROM public.borrower_sessions
+  WHERE session_token = p_session_token
+    AND status = 'active'
+    AND expires_at > now();
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Invalid or expired session';
+  END IF;
+
+  -- Select active borrowed items for this borrower email where copy is currently borrowed
+  SELECT json_agg(
+    json_build_object(
+      'transaction_id', t.id,
+      'copy_id', c.id,
+      'copy_number', c.copy_number,
+      'borrowed_at', t.borrowed_at,
+      'due_date', t.due_date,
+      'item_id', i.id,
+      'item_name', i.name,
+      'item_description', i.description,
+      'category_name', cat.name,
+      'location_name', loc.name,
+      'qr_uid', COALESCE(
+        (SELECT q.qr_uid FROM public.qr_codes q WHERE q.item_id = i.id AND q.is_active = true AND q.deleted_at IS NULL LIMIT 1),
+        (SELECT q.qr_uid FROM public.qr_codes q WHERE q.copy_id = c.id AND q.is_active = true AND q.deleted_at IS NULL LIMIT 1),
+        i.name
+      )
+    )
+  ) INTO v_result
+  FROM public.transactions t
+  JOIN public.inventory_copies c ON c.id = t.copy_id
+  JOIN public.inventory_items i ON i.id = c.item_id
+  LEFT JOIN public.categories cat ON cat.id = i.category_id
+  LEFT JOIN public.locations loc ON loc.id = c.location_id
+  WHERE t.borrower_email = v_session.email
+    AND t.type = 'borrow'
+    AND c.status = 'borrowed'
+    AND c.deleted_at IS NULL
+    AND i.deleted_at IS NULL
+    -- Ensure copy hasn't already been returned in a later transaction
+    AND NOT EXISTS (
+      SELECT 1 FROM public.transactions t2
+      WHERE t2.copy_id = c.id
+        AND t2.type = 'return'
+        AND t2.created_at > t.created_at
+    );
+
+  RETURN COALESCE(v_result, '[]'::json);
+END;
+$$;
+
+-- ============================================================================
 -- RPC: borrow_copy(session_token, copy_id, due_days, qr_uid)
 -- ============================================================================
 
@@ -815,6 +884,7 @@ GRANT EXECUTE ON FUNCTION public.return_copy TO anon;
 GRANT EXECUTE ON FUNCTION public.bulk_borrow_copies TO anon;
 GRANT EXECUTE ON FUNCTION public.bulk_return_copies TO anon;
 GRANT EXECUTE ON FUNCTION public.lookup_qr_for_counter TO anon;
+GRANT EXECUTE ON FUNCTION public.get_borrower_active_loans TO anon;
 
 -- Allow anon to update inventory_copies status (via RPCs only)
 GRANT UPDATE ON public.inventory_copies TO anon;

@@ -11,6 +11,7 @@ import {
   bulkBorrowCopies,
   bulkReturnCopies,
   getTerminalHistory,
+  getBorrowerActiveLoans,
 } from '../services/borrow.service'
 
 const borrowKeys = {
@@ -146,5 +147,13 @@ export function useBulkReturnItems() {
       copyIds?: string[]
       qrUids?: string[]
     }) => bulkReturnCopies(sessionToken, copyIds, qrUids),
+  })
+}
+
+export function useBorrowerActiveLoans(sessionToken: string | null) {
+  return useQuery({
+    queryKey: ['borrowerActiveLoans', sessionToken],
+    queryFn: () => getBorrowerActiveLoans(sessionToken!),
+    enabled: Boolean(sessionToken),
   })
 }
