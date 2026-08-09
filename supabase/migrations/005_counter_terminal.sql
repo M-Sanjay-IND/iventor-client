@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS public.terminal_sessions (
     CHECK (closed_at IS NULL OR closed_at >= opened_at)
 );
 
-CREATE INDEX idx_terminal_sessions_active
+CREATE INDEX IF NOT EXISTS idx_terminal_sessions_active
   ON public.terminal_sessions(opened_at)
   WHERE closed_at IS NULL;
 
@@ -58,11 +58,11 @@ CREATE TABLE IF NOT EXISTS public.borrower_sessions (
   CONSTRAINT borrower_sessions_attempts_non_negative CHECK (attempts >= 0)
 );
 
-CREATE INDEX idx_borrower_sessions_token
+CREATE INDEX IF NOT EXISTS idx_borrower_sessions_token
   ON public.borrower_sessions(session_token)
   WHERE status = 'active';
 
-CREATE INDEX idx_borrower_sessions_email
+CREATE INDEX IF NOT EXISTS idx_borrower_sessions_email
   ON public.borrower_sessions(email, created_at DESC);
 
 COMMENT ON TABLE public.borrower_sessions IS
@@ -72,9 +72,15 @@ COMMENT ON TABLE public.borrower_sessions IS
 -- TRANSACTIONS (immutable borrow/return ledger)
 -- ============================================================================
 
-CREATE TYPE public.transaction_type AS ENUM (
-  'borrow', 'return', 'lost', 'damaged'
-);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'transaction_type') THEN
+    CREATE TYPE public.transaction_type AS ENUM (
+      'borrow', 'return', 'lost', 'damaged'
+    );
+  END IF;
+END
+$$;
 
 CREATE TABLE IF NOT EXISTS public.transactions (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -92,11 +98,11 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   created_by          UUID REFERENCES auth.users(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_transactions_copy ON public.transactions(copy_id);
-CREATE INDEX idx_transactions_email ON public.transactions(borrower_email);
-CREATE INDEX idx_transactions_type ON public.transactions(type);
-CREATE INDEX idx_transactions_terminal ON public.transactions(terminal_session_id);
-CREATE INDEX idx_transactions_created ON public.transactions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_copy ON public.transactions(copy_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_email ON public.transactions(borrower_email);
+CREATE INDEX IF NOT EXISTS idx_transactions_type ON public.transactions(type);
+CREATE INDEX IF NOT EXISTS idx_transactions_terminal ON public.transactions(terminal_session_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_created ON public.transactions(created_at DESC);
 
 COMMENT ON TABLE public.transactions IS
   'Immutable transaction ledger. Every borrow/return creates a new row. Never updated or deleted.';
@@ -105,14 +111,17 @@ COMMENT ON TABLE public.transactions IS
 -- TRIGGERS: auto-update updated_at
 -- ============================================================================
 
+DROP TRIGGER IF EXISTS trg_terminal_sessions_updated_at ON public.terminal_sessions;
 CREATE TRIGGER trg_terminal_sessions_updated_at
   BEFORE UPDATE ON public.terminal_sessions
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_borrower_sessions_updated_at ON public.borrower_sessions;
 CREATE TRIGGER trg_borrower_sessions_updated_at
   BEFORE UPDATE ON public.borrower_sessions
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_transactions_updated_at ON public.transactions;
 CREATE TRIGGER trg_transactions_updated_at
   BEFORE UPDATE ON public.transactions
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
@@ -514,6 +523,19 @@ COMMENT ON FUNCTION public.lookup_qr_for_counter IS
 ALTER TABLE public.terminal_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.borrower_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+
+-- Drop policies if existing to allow idempotent re-runs
+DROP POLICY IF EXISTS "admins_all_terminal_sessions" ON public.terminal_sessions;
+DROP POLICY IF EXISTS "anon_select_terminal_sessions" ON public.terminal_sessions;
+DROP POLICY IF EXISTS "admins_all_borrower_sessions" ON public.borrower_sessions;
+DROP POLICY IF EXISTS "anon_select_borrower_sessions" ON public.borrower_sessions;
+DROP POLICY IF EXISTS "anon_insert_borrower_sessions" ON public.borrower_sessions;
+DROP POLICY IF EXISTS "admins_select_transactions" ON public.transactions;
+DROP POLICY IF EXISTS "anon_select_transactions" ON public.transactions;
+DROP POLICY IF EXISTS "anon_insert_transactions" ON public.transactions;
+DROP POLICY IF EXISTS "anon_select_qr_codes" ON public.qr_codes;
+DROP POLICY IF EXISTS "anon_select_inventory_copies" ON public.inventory_copies;
+DROP POLICY IF EXISTS "anon_select_inventory_items" ON public.inventory_items;
 
 -- Terminal Sessions: admins full access, anon read-only (check if open)
 CREATE POLICY "admins_all_terminal_sessions" ON public.terminal_sessions
