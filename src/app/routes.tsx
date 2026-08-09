@@ -7,13 +7,16 @@ import { QrPage, QrDetailPage, PrintPage } from '@/features/qr'
 import { ReportsPage } from '@/features/reports'
 import { SettingsPage } from '@/features/settings'
 
+import { CounterLayout } from '@/components/layout/CounterLayout'
+import { CounterPage } from '@/features/borrow'
+
 /**
  * Application route definitions.
  *
  * Routes are organized by interface:
  * - /login       → Public login page (redirects to /admin if authenticated)
  * - /admin/*     → Admin Dashboard (protected, redirects to /login if not)
- * - /counter/*   → Counter Terminal (future milestone)
+ * - /counter     → Counter Terminal (public, admin-gated session)
  *
  * Route guards:
  * - PublicRoute  → Wraps auth pages, redirects authenticated users away
@@ -24,6 +27,11 @@ export function AppRoutes() {
     <Routes>
       {/* Root → redirect to admin dashboard */}
       <Route path="/" element={<Navigate to="/admin" replace />} />
+
+      {/* Counter Terminal (Public layout, session-gated internally) */}
+      <Route element={<CounterLayout />}>
+        <Route path="/counter" element={<CounterPage />} />
+      </Route>
 
       {/* Public routes (login, etc.) */}
       <Route element={<PublicRoute />}>
