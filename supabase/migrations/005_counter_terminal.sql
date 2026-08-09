@@ -820,5 +820,48 @@ GRANT EXECUTE ON FUNCTION public.lookup_qr_for_counter TO anon;
 GRANT UPDATE ON public.inventory_copies TO anon;
 
 -- ============================================================================
+-- DATA MIGRATION: Auto-generate shared Item-Level QR codes for existing items
+-- ============================================================================
+
+DO $$
+DECLARE
+  v_item RECORD;
+  v_qr_uid TEXT;
+  v_seq INT := 1;
+BEGIN
+  FOR v_item IN
+    SELECT id, name FROM public.inventory_items WHERE deleted_at IS NULL ORDER BY created_at ASC
+  LOOP
+    -- Check if an item-level QR code already exists for this item
+    IF NOT EXISTS (
+      SELECT 1 FROM public.qr_codes WHERE item_id = v_item.id AND deleted_at IS NULL
+    ) THEN
+      v_qr_uid := 'INV-ITEM-' || lpad(v_seq::TEXT, 8, '0');
+      v_seq := v_seq + 1;
+
+      INSERT INTO public.qr_codes (
+        qr_uid,
+        item_id,
+        copy_id,
+        png_storage_path,
+        svg_storage_path,
+        checksum,
+        is_active
+      ) VALUES (
+        v_qr_uid,
+        v_item.id,
+        NULL,
+        'qrcodes/item_' || v_item.id::TEXT || '.png',
+        'qrcodes/item_' || v_item.id::TEXT || '.svg',
+        md5(v_qr_uid),
+        true
+      )
+      ON CONFLICT (qr_uid) DO NOTHING;
+    END IF;
+  END LOOP;
+END
+$$;
+
+-- ============================================================================
 -- END OF MIGRATION
 -- ============================================================================
