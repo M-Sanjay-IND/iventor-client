@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import Papa from 'papaparse'
+import * as XLSX from 'xlsx'
 import { Upload, X, FileCheck2, AlertTriangle, Play, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { Modal } from '@/components/ui/Modal'
@@ -37,25 +38,43 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
 
   const items = itemsData?.data || []
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0]
     if (!selected) return
-    if (!selected.name.endsWith('.csv')) {
-      toast.error('Please upload a .csv file')
+    
+    const fileName = selected.name.toLowerCase()
+    if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+      toast.error('Please upload a .csv or .xlsx file')
       return
     }
+
     setFile(selected)
-    
-    Papa.parse<ParsedRow>(selected, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        setParsedRows(results.data)
-      },
-      error: (error) => {
-        toast.error(`Error parsing CSV: ${error.message}`)
+
+    try {
+      if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        const buffer = await selected.arrayBuffer()
+        const workbook = XLSX.read(buffer, { type: 'array' })
+        const sheetName = workbook.SheetNames[0]
+        if (!sheetName) throw new Error('No sheets found in Excel file')
+        const worksheet = workbook.Sheets[sheetName]
+        if (!worksheet) throw new Error('Worksheet is empty')
+        const rows = XLSX.utils.sheet_to_json<ParsedRow>(worksheet, { defval: '' })
+        setParsedRows(rows)
+      } else {
+        Papa.parse<ParsedRow>(selected, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            setParsedRows(results.data)
+          },
+          error: (error) => {
+            toast.error(`Error parsing CSV: ${error.message}`)
+          },
+        })
       }
-    })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error reading spreadsheet file')
+    }
   }
 
   function downloadTemplate() {
@@ -81,7 +100,7 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
     try {
       const copiesToInsert: CopyFormData[] = []
       const locationMap = new Map<string, string>()
-      locationsList.forEach(l => locationMap.set(l.name.toLowerCase(), l.id))
+      locationsList.forEach((l) => locationMap.set(l.name.toLowerCase(), l.id))
       
       const maxCopyNumMap = new Map<string, number>()
       
@@ -90,13 +109,13 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
           throw new Error('All rows must have an Item Name and Location Name.')
         }
 
-        const itemName = row['Item Name'].trim().toLowerCase()
-        const item = items.find(i => i.name.toLowerCase() === itemName)
+        const itemName = String(row['Item Name']).trim().toLowerCase()
+        const item = items.find((i) => i.name.toLowerCase() === itemName)
         if (!item) {
           throw new Error(`Item not found: "${row['Item Name']}". Please create it first.`)
         }
 
-        const locationNameRaw = row['Location Name'].trim()
+        const locationNameRaw = String(row['Location Name']).trim()
         const locationName = locationNameRaw.toLowerCase()
         
         let locationId: string
@@ -107,7 +126,7 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
           const newLoc = await createLocationMutation.mutateAsync({
             name: locationNameRaw,
             description: 'Auto-created during bulk import',
-            parent_id: null
+            parent_id: null,
           })
           locationId = newLoc.id
           locationMap.set(locationName, newLoc.id)
@@ -130,8 +149,8 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
         const newCopyNum = currentMax + 1
         maxCopyNumMap.set(item.id, newCopyNum)
 
-        const conditionStr = row['Condition']?.trim().toLowerCase() || 'good'
-        const statusStr = row['Status']?.trim().toLowerCase() || 'available'
+        const conditionStr = String(row['Condition'] || '').trim().toLowerCase() || 'good'
+        const statusStr = String(row['Status'] || '').trim().toLowerCase() || 'available'
 
         copiesToInsert.push({
           item_id: item.id,
@@ -139,9 +158,9 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
           copy_number: newCopyNum,
           condition: conditionStr as any,
           status: statusStr as any,
-          notes: row['Notes'] || '',
+          notes: row['Notes'] ? String(row['Notes']) : '',
           asset_tag: null,
-          acquisition_date: null
+          acquisition_date: null,
         })
       }
 
@@ -149,7 +168,7 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
       const insertedCopies = await bulkCreateMutation.mutateAsync(copiesToInsert)
 
       setProgress('Generating QR Codes...')
-      const copyIds = insertedCopies.map(c => c.id)
+      const copyIds = insertedCopies.map((c) => c.id)
       await bulkQrMutation.mutateAsync(copyIds)
 
       toast.success(`Successfully imported ${insertedCopies.length} copies and generated their QR codes.`)
@@ -178,7 +197,7 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
         {!file ? (
           <>
             <div className="flex justify-between items-center text-sm mb-2">
-              <span className="text-muted-foreground">Upload a CSV to quickly add physical copies.</span>
+              <span className="text-muted-foreground">Upload a CSV or XLSX file to quickly add physical copies.</span>
               <button 
                 onClick={downloadTemplate}
                 className="flex items-center gap-1 text-primary hover:underline font-medium"
@@ -191,13 +210,13 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload className="size-10 text-muted-foreground mb-4" />
-              <p className="font-medium">Click or drag CSV file here</p>
-              <p className="text-sm text-muted-foreground mt-1">Headers must match exactly</p>
+              <p className="font-medium">Click or drag CSV or XLSX file here</p>
+              <p className="text-sm text-muted-foreground mt-1">Supports .csv, .xlsx, .xls</p>
               <input 
                 type="file" 
                 ref={fileInputRef}
-                accept=".csv"
-                onChange={handleFileChange}
+                accept=".csv, .xlsx, .xls"
+                onChange={(e) => void handleFileChange(e)}
                 className="hidden"
               />
             </div>
@@ -222,7 +241,7 @@ export function BulkImportModal({ open, onClose }: BulkImportModalProps) {
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 flex gap-3 text-sm text-blue-600">
               <AlertTriangle className="size-5 shrink-0" />
               <p>
-                Any new <strong>Locations</strong> found in your CSV will be automatically created. However, the overarching <strong>Items</strong> must already exist in the system before you can import physical copies of them!
+                Any new <strong>Locations</strong> found in your spreadsheet will be automatically created. However, the overarching <strong>Items</strong> must already exist in the system before you can import physical copies of them!
               </p>
             </div>
           </div>
