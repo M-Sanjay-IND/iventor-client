@@ -24,6 +24,11 @@ export const BORROWER_SESSION_TIMEOUT_MS = 600_000 // 10 minutes
 export const MAX_FAILED_LOGIN_ATTEMPTS = 5 as const
 export const ACCOUNT_LOCKOUT_DURATION_MS = 900_000 // 15 minutes
 
+/** Counter terminal configuration */
+export const COUNTER_EMAIL_DOMAIN = (import.meta.env.VITE_COUNTER_EMAIL_DOMAIN as string) || ''
+export const COUNTER_DUE_DAYS = parseInt(import.meta.env.VITE_COUNTER_DUE_DAYS as string, 10) || 0
+export const COUNTER_OTP_RESEND_COOLDOWN_MS = 60_000 // 1 minute
+
 /** Pagination defaults */
 export const DEFAULT_PAGE_SIZE = 25 as const
 export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
@@ -92,6 +97,8 @@ export const AUDIT_ACTIONS = {
   USER_CREATE: 'user.create',
   USER_UPDATE: 'user.update',
   USER_DELETE: 'user.delete',
+  TERMINAL_OPEN: 'terminal.open',
+  TERMINAL_CLOSE: 'terminal.close',
 } as const
 
 /** Sidebar navigation items */
