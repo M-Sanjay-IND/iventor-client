@@ -35,17 +35,22 @@ export async function closeTerminal(sessionId: string): Promise<void> {
 // Borrower OTP
 // ============================================================================
 
+export interface CreateOtpResult {
+  session_id: string
+  otp: string
+}
+
 export async function createBorrowerOtp(
   email: string,
   terminalId: string,
-): Promise<string> {
+): Promise<CreateOtpResult> {
   const { data, error } = await supabase.rpc('create_borrower_otp', {
     p_email: email,
     p_terminal_id: terminalId,
   })
 
   if (error) throw new BorrowServiceError(error.message, 'OTP_CREATE_FAILED')
-  return data as string
+  return data as CreateOtpResult
 }
 
 export async function verifyBorrowerOtp(

@@ -222,7 +222,7 @@ CREATE OR REPLACE FUNCTION public.create_borrower_otp(
   p_email TEXT,
   p_terminal_id UUID
 )
-RETURNS UUID
+RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
@@ -251,12 +251,10 @@ BEGIN
   )
   RETURNING id INTO v_session_id;
 
-  -- Return session ID (OTP is sent separately by the application layer)
-  -- The OTP is returned here so the app can send it via email
-  -- In production, use an Edge Function for secure OTP delivery
-  RAISE NOTICE 'OTP: %', v_otp;
-
-  RETURN v_session_id;
+  RETURN json_build_object(
+    'session_id', v_session_id,
+    'otp', v_otp
+  );
 END;
 $$;
 

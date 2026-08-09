@@ -54,13 +54,16 @@ export function CounterPage() {
 
     setEmail(userEmail)
     try {
-      const id = await createOtpMutation.mutateAsync({
+      const res = await createOtpMutation.mutateAsync({
         email: userEmail,
         terminalId: terminalSession.id,
       })
-      setSessionId(id)
+      setSessionId(res.session_id)
       setStep('otp')
-      toast.success('Verification OTP sent!')
+      console.log('[DEV MODE] Borrower OTP Code:', res.otp)
+      toast.info(`[DEV MODE] Verification Code: ${res.otp}`, {
+        duration: 10000,
+      })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to send OTP')
     }
@@ -87,12 +90,15 @@ export function CounterPage() {
   // Handle OTP resend
   async function handleResendOtp() {
     if (!email || !terminalSession) return
-    const id = await createOtpMutation.mutateAsync({
+    const res = await createOtpMutation.mutateAsync({
       email,
       terminalId: terminalSession.id,
     })
-    setSessionId(id)
-    toast.success('New OTP sent!')
+    setSessionId(res.session_id)
+    console.log('[DEV MODE] Resent Borrower OTP Code:', res.otp)
+    toast.info(`[DEV MODE] New Verification Code: ${res.otp}`, {
+      duration: 10000,
+    })
   }
 
   // Select action mode (borrow or return)
