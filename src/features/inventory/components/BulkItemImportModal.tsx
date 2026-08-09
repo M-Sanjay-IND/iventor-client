@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import Papa from 'papaparse'
+import * as XLSX from 'xlsx'
 import { Upload, X, FileCheck2, Play, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { Modal } from '@/components/ui/Modal'
@@ -33,25 +34,43 @@ export function BulkItemImportModal({ open, onClose }: BulkItemImportModalProps)
   const createCategoryMutation = useCreateCategory()
   const bulkCreateMutation = useBulkCreateItems()
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0]
     if (!selected) return
-    if (!selected.name.endsWith('.csv')) {
-      toast.error('Please upload a .csv file')
+
+    const fileName = selected.name.toLowerCase()
+    if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+      toast.error('Please upload a .csv or .xlsx file')
       return
     }
+
     setFile(selected)
     
-    Papa.parse<ParsedItemRow>(selected, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        setParsedRows(results.data)
-      },
-      error: (error) => {
-        toast.error(`Error parsing CSV: ${error.message}`)
+    try {
+      if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        const buffer = await selected.arrayBuffer()
+        const workbook = XLSX.read(buffer, { type: 'array' })
+        const sheetName = workbook.SheetNames[0]
+        if (!sheetName) throw new Error('No sheets found in Excel file')
+        const worksheet = workbook.Sheets[sheetName]
+        if (!worksheet) throw new Error('Worksheet is empty')
+        const rows = XLSX.utils.sheet_to_json<ParsedItemRow>(worksheet, { defval: '' })
+        setParsedRows(rows)
+      } else {
+        Papa.parse<ParsedItemRow>(selected, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            setParsedRows(results.data)
+          },
+          error: (error) => {
+            toast.error(`Error parsing CSV: ${error.message}`)
+          },
+        })
       }
-    })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error reading spreadsheet file')
+    }
   }
 
   function downloadTemplate() {
@@ -78,7 +97,7 @@ export function BulkItemImportModal({ open, onClose }: BulkItemImportModalProps)
       const itemsToInsert: ItemFormData[] = []
       
       const categoryMap = new Map<string, string>()
-      categories.forEach(c => categoryMap.set(c.name.toLowerCase(), c.id))
+      categories.forEach((c) => categoryMap.set(c.name.toLowerCase(), c.id))
 
       for (const row of parsedRows) {
         if (!row['Name']) {
@@ -87,7 +106,7 @@ export function BulkItemImportModal({ open, onClose }: BulkItemImportModalProps)
 
         let categoryId: string | null = null
         if (row['Category Name']?.trim()) {
-          const rawName = row['Category Name'].trim()
+          const rawName = String(row['Category Name']).trim()
           const csvCatName = rawName.toLowerCase()
           
           if (categoryMap.has(csvCatName)) {
@@ -97,7 +116,7 @@ export function BulkItemImportModal({ open, onClose }: BulkItemImportModalProps)
             const newCat = await createCategoryMutation.mutateAsync({ 
               name: rawName, 
               description: 'Auto-created during bulk import',
-              parent_id: null 
+              parent_id: null,
             })
             categoryId = newCat.id
             categoryMap.set(csvCatName, newCat.id)
@@ -105,15 +124,15 @@ export function BulkItemImportModal({ open, onClose }: BulkItemImportModalProps)
         }
 
         itemsToInsert.push({
-          name: row['Name'],
-          description: row['Description'] || '',
+          name: String(row['Name']).trim(),
+          description: row['Description'] ? String(row['Description']) : '',
           category_id: categoryId,
-          manufacturer: row['Manufacturer'] || '',
-          brand: row['Brand'] || '',
-          model: row['Model'] || '',
-          sku: row['SKU'] || '',
-          unit_value: row['Unit Value'] ? parseFloat(row['Unit Value']) : 0,
-          metadata: {}
+          manufacturer: row['Manufacturer'] ? String(row['Manufacturer']) : '',
+          brand: row['Brand'] ? String(row['Brand']) : '',
+          model: row['Model'] ? String(row['Model']) : '',
+          sku: row['SKU'] ? String(row['SKU']) : '',
+          unit_value: row['Unit Value'] ? parseFloat(String(row['Unit Value'])) : 0,
+          metadata: {},
         })
       }
 
@@ -147,7 +166,7 @@ export function BulkItemImportModal({ open, onClose }: BulkItemImportModalProps)
         {!file ? (
           <>
             <div className="flex justify-between items-center text-sm mb-2">
-              <span className="text-muted-foreground">Upload a CSV to quickly add catalog items.</span>
+              <span className="text-muted-foreground">Upload a CSV or XLSX file to quickly add catalog items.</span>
               <button 
                 onClick={downloadTemplate}
                 className="flex items-center gap-1 text-primary hover:underline font-medium"
@@ -160,13 +179,13 @@ export function BulkItemImportModal({ open, onClose }: BulkItemImportModalProps)
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload className="size-10 text-muted-foreground mb-4" />
-              <p className="font-medium">Click or drag CSV file here</p>
-              <p className="text-sm text-muted-foreground mt-1">Headers must match exactly</p>
+              <p className="font-medium">Click or drag CSV or XLSX file here</p>
+              <p className="text-sm text-muted-foreground mt-1">Supports .csv, .xlsx, .xls</p>
               <input 
                 type="file" 
                 ref={fileInputRef}
-                accept=".csv"
-                onChange={handleFileChange}
+                accept=".csv, .xlsx, .xls"
+                onChange={(e) => void handleFileChange(e)}
                 className="hidden"
               />
             </div>
@@ -191,7 +210,7 @@ export function BulkItemImportModal({ open, onClose }: BulkItemImportModalProps)
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 flex gap-3 text-sm text-blue-600">
               <FileCheck2 className="size-5 shrink-0" />
               <p>
-                Any new categories found in the CSV will be automatically created for you.
+                Any new categories found in the spreadsheet will be automatically created for you.
               </p>
             </div>
           </div>
