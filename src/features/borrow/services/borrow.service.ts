@@ -111,6 +111,34 @@ export async function returnCopy(
   return data as Transaction
 }
 
+export async function bulkBorrowCopies(
+  sessionToken: string,
+  copyIds: string[],
+  dueDays?: number,
+): Promise<Transaction[]> {
+  const { data, error } = await supabase.rpc('bulk_borrow_copies', {
+    p_session_token: sessionToken,
+    p_copy_ids: copyIds,
+    p_due_days: dueDays && dueDays > 0 ? dueDays : null,
+  })
+
+  if (error) throw new BorrowServiceError(error.message, 'BULK_BORROW_FAILED')
+  return (data ?? []) as Transaction[]
+}
+
+export async function bulkReturnCopies(
+  sessionToken: string,
+  copyIds: string[],
+): Promise<Transaction[]> {
+  const { data, error } = await supabase.rpc('bulk_return_copies', {
+    p_session_token: sessionToken,
+    p_copy_ids: copyIds,
+  })
+
+  if (error) throw new BorrowServiceError(error.message, 'BULK_RETURN_FAILED')
+  return (data ?? []) as Transaction[]
+}
+
 // ============================================================================
 // Terminal History (Admin)
 // ============================================================================

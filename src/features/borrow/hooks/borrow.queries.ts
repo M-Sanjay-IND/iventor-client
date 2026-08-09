@@ -8,6 +8,8 @@ import {
   lookupQrForCounter,
   borrowCopy,
   returnCopy,
+  bulkBorrowCopies,
+  bulkReturnCopies,
   getTerminalHistory,
 } from '../services/borrow.service'
 
@@ -114,5 +116,31 @@ export function useReturnItem() {
       sessionToken: string
       copyId: string
     }) => returnCopy(sessionToken, copyId),
+  })
+}
+
+export function useBulkBorrowItems() {
+  return useMutation({
+    mutationFn: ({
+      sessionToken,
+      copyIds,
+      dueDays,
+    }: {
+      sessionToken: string
+      copyIds: string[]
+      dueDays?: number
+    }) => bulkBorrowCopies(sessionToken, copyIds, dueDays),
+  })
+}
+
+export function useBulkReturnItems() {
+  return useMutation({
+    mutationFn: ({
+      sessionToken,
+      copyIds,
+    }: {
+      sessionToken: string
+      copyIds: string[]
+    }) => bulkReturnCopies(sessionToken, copyIds),
   })
 }

@@ -485,6 +485,57 @@ END;
 $$;
 
 -- ============================================================================
+-- RPC: bulk_borrow_copies(session_token, copy_ids, due_days)
+-- ============================================================================
+
+DROP FUNCTION IF EXISTS public.bulk_borrow_copies(UUID, UUID[], INTEGER);
+
+CREATE OR REPLACE FUNCTION public.bulk_borrow_copies(
+  p_session_token UUID,
+  p_copy_ids UUID[],
+  p_due_days INTEGER DEFAULT NULL
+)
+RETURNS SETOF public.transactions
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_copy_id UUID;
+  v_tx public.transactions%ROWTYPE;
+BEGIN
+  FOREACH v_copy_id IN ARRAY p_copy_ids LOOP
+    v_tx := public.borrow_copy(p_session_token, v_copy_id, p_due_days);
+    RETURN NEXT v_tx;
+  END LOOP;
+END;
+$$;
+
+-- ============================================================================
+-- RPC: bulk_return_copies(session_token, copy_ids)
+-- ============================================================================
+
+DROP FUNCTION IF EXISTS public.bulk_return_copies(UUID, UUID[]);
+
+CREATE OR REPLACE FUNCTION public.bulk_return_copies(
+  p_session_token UUID,
+  p_copy_ids UUID[]
+)
+RETURNS SETOF public.transactions
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_copy_id UUID;
+  v_tx public.transactions%ROWTYPE;
+BEGIN
+  FOREACH v_copy_id IN ARRAY p_copy_ids LOOP
+    v_tx := public.return_copy(p_session_token, v_copy_id);
+    RETURN NEXT v_tx;
+  END LOOP;
+END;
+$$;
+
+-- ============================================================================
 -- RPC: lookup_qr_for_counter(qr_uid)
 -- ============================================================================
 
@@ -645,6 +696,8 @@ GRANT EXECUTE ON FUNCTION public.create_borrower_otp TO anon;
 GRANT EXECUTE ON FUNCTION public.verify_borrower_otp TO anon;
 GRANT EXECUTE ON FUNCTION public.borrow_copy TO anon;
 GRANT EXECUTE ON FUNCTION public.return_copy TO anon;
+GRANT EXECUTE ON FUNCTION public.bulk_borrow_copies TO anon;
+GRANT EXECUTE ON FUNCTION public.bulk_return_copies TO anon;
 GRANT EXECUTE ON FUNCTION public.lookup_qr_for_counter TO anon;
 
 -- Allow anon to update inventory_copies status (via RPCs only)

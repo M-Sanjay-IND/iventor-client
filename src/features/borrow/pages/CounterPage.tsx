@@ -4,10 +4,10 @@ import {
   useActiveTerminal,
   useCreateBorrowerOtp,
   useVerifyBorrowerOtp,
-  useBorrowItem,
-  useReturnItem,
+  useBulkBorrowItems,
+  useBulkReturnItems,
 } from '../hooks/borrow.queries'
-import type { CounterMode, Transaction } from '../types'
+import type { CounterMode, Transaction, QrLookupResult } from '../types'
 import { COUNTER_DUE_DAYS } from '@/constants'
 import { TerminalClosed } from '../components/TerminalClosed'
 import { EmailStep } from '../components/EmailStep'
@@ -28,12 +28,13 @@ export function CounterPage() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [sessionToken, setSessionToken] = useState<string | null>(null)
   const [mode, setMode] = useState<CounterMode>('borrow')
-  const [completedTransaction, setCompletedTransaction] = useState<Transaction | null>(null)
+  const [completedTransactions, setCompletedTransactions] = useState<Transaction[]>([])
+  const [completedItems, setCompletedItems] = useState<QrLookupResult[]>([])
 
   const createOtpMutation = useCreateBorrowerOtp()
   const verifyOtpMutation = useVerifyBorrowerOtp()
-  const borrowMutation = useBorrowItem()
-  const returnMutation = useReturnItem()
+  const bulkBorrowMutation = useBulkBorrowItems()
+  const bulkReturnMutation = useBulkReturnItems()
 
   // Reset entire borrower flow
   function handleEndSession() {
@@ -41,7 +42,8 @@ export function CounterPage() {
     setEmail('')
     setSessionId(null)
     setSessionToken(null)
-    setCompletedTransaction(null)
+    setCompletedTransactions([])
+    setCompletedItems([])
     toast.info('Borrower session ended')
   }
 
@@ -107,8 +109,8 @@ export function CounterPage() {
     setStep('scanner')
   }
 
-  // Handle confirmed scan action (borrow or return)
-  async function handleConfirmAction(copyId: string) {
+  // Handle confirmed bulk scan action (borrow or return)
+  async function handleConfirmBulkAction(copyIds: string[], items: QrLookupResult[]) {
     if (!sessionToken) {
       toast.error('Session expired')
       handleEndSession()
@@ -116,26 +118,27 @@ export function CounterPage() {
     }
 
     try {
-      let tx: Transaction
+      let txs: Transaction[]
       if (mode === 'borrow') {
-        tx = await borrowMutation.mutateAsync({
+        txs = await bulkBorrowMutation.mutateAsync({
           sessionToken,
-          copyId,
+          copyIds,
           dueDays: COUNTER_DUE_DAYS,
         })
-        toast.success('Item successfully borrowed!')
+        toast.success(`Successfully borrowed ${txs.length} ${txs.length === 1 ? 'item' : 'items'}!`)
       } else {
-        tx = await returnMutation.mutateAsync({
+        txs = await bulkReturnMutation.mutateAsync({
           sessionToken,
-          copyId,
+          copyIds,
         })
-        toast.success('Item successfully returned!')
+        toast.success(`Successfully returned ${txs.length} ${txs.length === 1 ? 'item' : 'items'}!`)
       }
 
-      setCompletedTransaction(tx)
+      setCompletedTransactions(txs)
+      setCompletedItems(items)
       setStep('receipt')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Transaction failed')
+      toast.error(err instanceof Error ? err.message : 'Batch transaction failed')
       throw err
     }
   }
@@ -189,15 +192,16 @@ export function CounterPage() {
       {step === 'scanner' && (
         <ScannerInput
           mode={mode}
-          onConfirmAction={handleConfirmAction}
+          onConfirmBulkAction={handleConfirmBulkAction}
           onBack={() => setStep('mode')}
-          loading={borrowMutation.isPending || returnMutation.isPending}
+          loading={bulkBorrowMutation.isPending || bulkReturnMutation.isPending}
         />
       )}
 
-      {step === 'receipt' && completedTransaction && (
+      {step === 'receipt' && completedTransactions.length > 0 && (
         <TransactionReceipt
-          transaction={completedTransaction}
+          transactions={completedTransactions}
+          items={completedItems}
           onScanAnother={() => setStep('mode')}
           onEndSession={handleEndSession}
         />
