@@ -820,45 +820,42 @@ GRANT EXECUTE ON FUNCTION public.lookup_qr_for_counter TO anon;
 GRANT UPDATE ON public.inventory_copies TO anon;
 
 -- ============================================================================
--- DATA MIGRATION: Auto-generate shared Item-Level QR codes for existing items
+-- DATA MIGRATION: Convert existing copy-level QR codes to shared Item-Level QR codes
 -- ============================================================================
 
 DO $$
-DECLARE
-  v_item RECORD;
-  v_qr_uid TEXT;
-  v_seq INT := 1;
 BEGIN
-  FOR v_item IN
-    SELECT id, name FROM public.inventory_items WHERE deleted_at IS NULL ORDER BY created_at ASC
-  LOOP
-    -- Check if an item-level QR code already exists for this item
-    IF NOT EXISTS (
-      SELECT 1 FROM public.qr_codes WHERE item_id = v_item.id AND deleted_at IS NULL
-    ) THEN
-      v_qr_uid := 'INV-ITEM-' || lpad(v_seq::TEXT, 8, '0');
-      v_seq := v_seq + 1;
+  -- 1. Populate item_id on all existing qr_codes from their associated inventory_copies
+  UPDATE public.qr_codes q
+  SET item_id = c.item_id
+  FROM public.inventory_copies c
+  WHERE q.copy_id = c.id
+    AND q.item_id IS NULL;
 
-      INSERT INTO public.qr_codes (
-        qr_uid,
-        item_id,
-        copy_id,
-        png_storage_path,
-        svg_storage_path,
-        checksum,
-        is_active
-      ) VALUES (
-        v_qr_uid,
-        v_item.id,
-        NULL,
-        'qrcodes/item_' || v_item.id::TEXT || '.png',
-        'qrcodes/item_' || v_item.id::TEXT || '.svg',
-        md5(v_qr_uid),
-        true
-      )
-      ON CONFLICT (qr_uid) DO NOTHING;
-    END IF;
-  END LOOP;
+  -- 2. Generate item-level QR codes for any items that do not have a QR code yet
+  INSERT INTO public.qr_codes (
+    qr_uid,
+    item_id,
+    copy_id,
+    png_storage_path,
+    svg_storage_path,
+    checksum,
+    is_active
+  )
+  SELECT
+    'INV-ITEM-' || lpad(row_number() OVER (ORDER BY i.created_at)::TEXT, 8, '0'),
+    i.id,
+    NULL,
+    'qrcodes/item_' || i.id::TEXT || '.png',
+    'qrcodes/item_' || i.id::TEXT || '.svg',
+    md5('INV-ITEM-' || i.id::TEXT),
+    true
+  FROM public.inventory_items i
+  WHERE i.deleted_at IS NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM public.qr_codes q WHERE q.item_id = i.id AND q.deleted_at IS NULL
+    )
+  ON CONFLICT (qr_uid) DO NOTHING;
 END
 $$;
 
