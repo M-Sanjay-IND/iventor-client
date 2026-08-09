@@ -130,6 +130,8 @@ CREATE TRIGGER trg_transactions_updated_at
 -- RPC: get_active_terminal()
 -- ============================================================================
 
+DROP FUNCTION IF EXISTS public.get_active_terminal();
+
 CREATE OR REPLACE FUNCTION public.get_active_terminal()
 RETURNS SETOF public.terminal_sessions
 LANGUAGE sql
@@ -149,6 +151,8 @@ COMMENT ON FUNCTION public.get_active_terminal IS
 -- ============================================================================
 -- RPC: open_terminal()
 -- ============================================================================
+
+DROP FUNCTION IF EXISTS public.open_terminal(TEXT);
 
 CREATE OR REPLACE FUNCTION public.open_terminal(p_notes TEXT DEFAULT NULL)
 RETURNS UUID
@@ -192,6 +196,8 @@ $$;
 -- RPC: close_terminal(session_id)
 -- ============================================================================
 
+DROP FUNCTION IF EXISTS public.close_terminal(UUID);
+
 CREATE OR REPLACE FUNCTION public.close_terminal(p_session_id UUID)
 RETURNS VOID
 LANGUAGE plpgsql
@@ -226,6 +232,8 @@ $$;
 -- ============================================================================
 -- RPC: create_borrower_otp(email, terminal_session_id)
 -- ============================================================================
+
+DROP FUNCTION IF EXISTS public.create_borrower_otp(TEXT, UUID);
 
 CREATE OR REPLACE FUNCTION public.create_borrower_otp(
   p_email TEXT,
@@ -270,6 +278,8 @@ $$;
 -- ============================================================================
 -- RPC: verify_borrower_otp(session_id, otp)
 -- ============================================================================
+
+DROP FUNCTION IF EXISTS public.verify_borrower_otp(UUID, TEXT);
 
 CREATE OR REPLACE FUNCTION public.verify_borrower_otp(
   p_session_id UUID,
@@ -336,6 +346,8 @@ $$;
 -- ============================================================================
 -- RPC: borrow_copy(session_token, copy_id)
 -- ============================================================================
+
+DROP FUNCTION IF EXISTS public.borrow_copy(UUID, UUID, INTEGER);
 
 CREATE OR REPLACE FUNCTION public.borrow_copy(
   p_session_token UUID,
@@ -409,6 +421,8 @@ $$;
 -- RPC: return_copy(session_token, copy_id)
 -- ============================================================================
 
+DROP FUNCTION IF EXISTS public.return_copy(UUID, UUID);
+
 CREATE OR REPLACE FUNCTION public.return_copy(
   p_session_token UUID,
   p_copy_id UUID
@@ -473,6 +487,8 @@ $$;
 -- ============================================================================
 -- RPC: lookup_qr_for_counter(qr_uid)
 -- ============================================================================
+
+DROP FUNCTION IF EXISTS public.lookup_qr_for_counter(TEXT);
 
 CREATE OR REPLACE FUNCTION public.lookup_qr_for_counter(p_qr_uid TEXT)
 RETURNS JSON
