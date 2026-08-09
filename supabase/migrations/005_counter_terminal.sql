@@ -458,43 +458,52 @@ BEGIN
     RAISE EXCEPTION 'Invalid or expired session';
   END IF;
 
-  -- Select active borrowed items for this borrower email where copy is currently borrowed
+  -- Select active borrowed items for this borrower (case-insensitive email)
+  -- where the physical copy is currently 'borrowed'
   SELECT json_agg(
     json_build_object(
-      'transaction_id', t.id,
-      'copy_id', c.id,
-      'copy_number', c.copy_number,
-      'borrowed_at', t.borrowed_at,
-      'due_date', t.due_date,
-      'item_id', i.id,
-      'item_name', i.name,
-      'item_description', i.description,
-      'category_name', cat.name,
-      'location_name', loc.name,
-      'qr_uid', COALESCE(
+      'transaction_id', sub.tx_id,
+      'copy_id', sub.copy_id,
+      'copy_number', sub.copy_number,
+      'borrowed_at', sub.borrowed_at,
+      'due_date', sub.due_date,
+      'item_id', sub.item_id,
+      'item_name', sub.item_name,
+      'item_description', sub.item_description,
+      'category_name', sub.category_name,
+      'location_name', sub.location_name,
+      'qr_uid', sub.qr_uid
+    )
+  ) INTO v_result
+  FROM (
+    SELECT DISTINCT ON (c.id)
+      t.id AS tx_id,
+      c.id AS copy_id,
+      c.copy_number,
+      t.borrowed_at,
+      t.due_date,
+      i.id AS item_id,
+      i.name AS item_name,
+      i.description AS item_description,
+      cat.name AS category_name,
+      loc.name AS location_name,
+      COALESCE(
         (SELECT q.qr_uid FROM public.qr_codes q WHERE q.item_id = i.id AND q.is_active = true AND q.deleted_at IS NULL LIMIT 1),
         (SELECT q.qr_uid FROM public.qr_codes q WHERE q.copy_id = c.id AND q.is_active = true AND q.deleted_at IS NULL LIMIT 1),
         i.name
-      )
-    )
-  ) INTO v_result
-  FROM public.transactions t
-  JOIN public.inventory_copies c ON c.id = t.copy_id
-  JOIN public.inventory_items i ON i.id = c.item_id
-  LEFT JOIN public.categories cat ON cat.id = i.category_id
-  LEFT JOIN public.locations loc ON loc.id = c.location_id
-  WHERE t.borrower_email = v_session.email
-    AND t.type = 'borrow'
-    AND c.status = 'borrowed'
-    AND c.deleted_at IS NULL
-    AND i.deleted_at IS NULL
-    -- Ensure copy hasn't already been returned in a later transaction
-    AND NOT EXISTS (
-      SELECT 1 FROM public.transactions t2
-      WHERE t2.copy_id = c.id
-        AND t2.type = 'return'
-        AND t2.created_at > t.created_at
-    );
+      ) AS qr_uid
+    FROM public.inventory_copies c
+    JOIN public.inventory_items i ON i.id = c.item_id
+    JOIN public.transactions t ON t.copy_id = c.id
+    LEFT JOIN public.categories cat ON cat.id = i.category_id
+    LEFT JOIN public.locations loc ON loc.id = c.location_id
+    WHERE c.status = 'borrowed'
+      AND c.deleted_at IS NULL
+      AND i.deleted_at IS NULL
+      AND LOWER(t.borrower_email) = LOWER(v_session.email)
+      AND t.type = 'borrow'
+    ORDER BY c.id, t.created_at DESC
+  ) sub;
 
   RETURN COALESCE(v_result, '[]'::json);
 END;
