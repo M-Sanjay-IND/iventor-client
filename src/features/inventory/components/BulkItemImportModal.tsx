@@ -123,15 +123,20 @@ export function BulkItemImportModal({ open, onClose }: BulkItemImportModalProps)
           }
         }
 
+        const rawSku = row['SKU'] ? String(row['SKU']).trim() : ''
+        const rawManufacturer = row['Manufacturer'] ? String(row['Manufacturer']).trim() : ''
+        const rawBrand = row['Brand'] ? String(row['Brand']).trim() : ''
+        const rawModel = row['Model'] ? String(row['Model']).trim() : ''
+
         itemsToInsert.push({
           name: String(row['Name']).trim(),
-          description: row['Description'] ? String(row['Description']) : '',
+          description: row['Description'] ? String(row['Description']).trim() : '',
           category_id: categoryId,
-          manufacturer: row['Manufacturer'] ? String(row['Manufacturer']) : '',
-          brand: row['Brand'] ? String(row['Brand']) : '',
-          model: row['Model'] ? String(row['Model']) : '',
-          sku: row['SKU'] ? String(row['SKU']) : '',
-          unit_value: row['Unit Value'] ? parseFloat(String(row['Unit Value'])) : 0,
+          manufacturer: rawManufacturer || null,
+          brand: rawBrand || null,
+          model: rawModel || null,
+          sku: rawSku !== '' ? rawSku : null,
+          unit_value: row['Unit Value'] ? parseFloat(String(row['Unit Value'])) : null,
           metadata: {},
         })
       }
