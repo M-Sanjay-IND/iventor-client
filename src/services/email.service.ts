@@ -30,6 +30,23 @@ export interface EmailDispatchResult {
   error?: string
 }
 
+async function extractErrorMessage(error: any): Promise<string> {
+  let detailedMsg = error?.message || 'Email dispatch failed'
+  try {
+    if (error && typeof error === 'object' && 'context' in error && error.context) {
+      const body = await (error.context as Response).json()
+      if (body?.error) {
+        detailedMsg = typeof body.error === 'string' ? body.error : body.error.message || body.message
+      } else if (body?.message) {
+        detailedMsg = body.message
+      }
+    }
+  } catch {
+    // Ignore JSON parsing failure
+  }
+  return detailedMsg
+}
+
 /**
  * Sends borrower one-time password (OTP) verification email.
  */
@@ -62,8 +79,9 @@ export async function sendBorrowerOtpEmail(
     })
 
     if (error) {
-      console.error('[EMAIL ERROR] Supabase Edge Function error:', error)
-      return { success: false, error: error.message }
+      const detailed = await extractErrorMessage(error)
+      console.error('[EMAIL ERROR] Supabase Edge Function error:', detailed)
+      return { success: false, error: detailed }
     }
 
     if (data?.error) {
@@ -131,8 +149,9 @@ export async function sendBorrowReceiptEmail({
     })
 
     if (error) {
-      console.error('[EMAIL ERROR] Borrow receipt failed:', error)
-      return { success: false, error: error.message }
+      const detailed = await extractErrorMessage(error)
+      console.error('[EMAIL ERROR] Borrow receipt failed:', detailed)
+      return { success: false, error: detailed }
     }
 
     return { success: true }
@@ -188,8 +207,9 @@ export async function sendReturnReceiptEmail({
     })
 
     if (error) {
-      console.error('[EMAIL ERROR] Return receipt failed:', error)
-      return { success: false, error: error.message }
+      const detailed = await extractErrorMessage(error)
+      console.error('[EMAIL ERROR] Return receipt failed:', detailed)
+      return { success: false, error: detailed }
     }
 
     return { success: true }
@@ -247,8 +267,9 @@ export async function sendDueReminderEmail({
     })
 
     if (error) {
-      console.error('[EMAIL ERROR] Due reminder failed:', error)
-      return { success: false, error: error.message }
+      const detailed = await extractErrorMessage(error)
+      console.error('[EMAIL ERROR] Due reminder failed:', detailed)
+      return { success: false, error: detailed }
     }
 
     return { success: true }
