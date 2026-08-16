@@ -10,7 +10,11 @@ import {
   Layers,
   ArrowUpRight,
   ArrowDownLeft,
+  Mail,
+  Send,
+  Loader2,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   useValuationReport,
   useBorrowingReport,
@@ -18,22 +22,102 @@ import {
   useLostDamagedReport,
 } from '../hooks/reports.queries'
 import { exportToCsv, exportToXlsx, printReport } from '../utils/export.utils'
+import { sendDueReminderEmail } from '@/services/email.service'
 import type { ReportTab } from '../types'
+
+type DatePreset = 'all' | 'today' | '7days' | '30days' | 'this_month' | 'custom'
 
 export function ReportsPage() {
   const [activeTab, setActiveTab] = useState<ReportTab>('valuation')
+  const [preset, setPreset] = useState<DatePreset>('all')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [sendingReminders, setSendingReminders] = useState(false)
 
-  const valuationQuery = useValuationReport()
-  const borrowingQuery = useBorrowingReport(
-    startDate ? new Date(startDate).toISOString() : undefined,
-    endDate ? new Date(endDate + 'T23:59:59.999Z').toISOString() : undefined,
-  )
-  const overdueQuery = useOverdueReport()
-  const lostDamagedQuery = useLostDamagedReport()
+  // Compute ISO filters
+  const dateFilter = {
+    startDate: startDate ? new Date(startDate).toISOString() : undefined,
+    endDate: endDate ? new Date(endDate + 'T23:59:59.999Z').toISOString() : undefined,
+  }
+
+  const valuationQuery = useValuationReport(dateFilter)
+  const borrowingQuery = useBorrowingReport(dateFilter.startDate, dateFilter.endDate)
+  const overdueQuery = useOverdueReport(dateFilter)
+  const lostDamagedQuery = useLostDamagedReport(dateFilter)
+
+  function handlePresetChange(newPreset: DatePreset) {
+    setPreset(newPreset)
+    const now = new Date()
+
+    if (newPreset === 'all') {
+      setStartDate('')
+      setEndDate('')
+    } else if (newPreset === 'today') {
+      const todayStr = now.toISOString().split('T')[0]!
+      setStartDate(todayStr)
+      setEndDate(todayStr)
+    } else if (newPreset === '7days') {
+      const past = new Date()
+      past.setDate(now.getDate() - 7)
+      setStartDate(past.toISOString().split('T')[0]!)
+      setEndDate(now.toISOString().split('T')[0]!)
+    } else if (newPreset === '30days') {
+      const past = new Date()
+      past.setDate(now.getDate() - 30)
+      setStartDate(past.toISOString().split('T')[0]!)
+      setEndDate(now.toISOString().split('T')[0]!)
+    } else if (newPreset === 'this_month') {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      setStartDate(startOfMonth.toISOString().split('T')[0]!)
+      setEndDate(now.toISOString().split('T')[0]!)
+    }
+  }
+
+  async function handleSendAllDueReminders() {
+    const overdueItems = overdueQuery.data ?? []
+    if (overdueItems.length === 0) {
+      toast.info('No overdue items to send reminders for.')
+      return
+    }
+
+    setSendingReminders(true)
+    try {
+      // Group by borrower email
+      const borrowerMap = new Map<string, typeof overdueItems>()
+      for (const item of overdueItems) {
+        if (!borrowerMap.has(item.borrower_email)) {
+          borrowerMap.set(item.borrower_email, [])
+        }
+        borrowerMap.get(item.borrower_email)!.push(item)
+      }
+
+      for (const [email, items] of borrowerMap.entries()) {
+        await sendDueReminderEmail({
+          borrowerEmail: email,
+          items: items.map((i) => ({
+            item_name: i.item_name,
+            copy_number: i.copy_number,
+            due_date: i.due_date,
+            days_overdue: i.days_overdue,
+          })),
+        })
+      }
+
+      toast.success(
+        `Sent due/overdue reminder emails to ${borrowerMap.size} ${
+          borrowerMap.size === 1 ? 'borrower' : 'borrowers'
+        }!`,
+      )
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to dispatch due reminders')
+    } finally {
+      setSendingReminders(false)
+    }
+  }
 
   function handleExportCsv() {
+    const suffix = startDate && endDate ? `_${startDate}_to_${endDate}` : '_all_time'
+
     if (activeTab === 'valuation' && valuationQuery.data) {
       const rows = valuationQuery.data.by_category.map((c) => ({
         'Category Name': c.category_name,
@@ -41,7 +125,7 @@ export function ReportsPage() {
         'Copy Count': c.copy_count,
         'Total Valuation (INR)': c.total_value,
       }))
-      exportToCsv('inventory_valuation_report.csv', rows)
+      exportToCsv(`inventory_valuation_report${suffix}.csv`, rows)
     } else if (activeTab === 'borrowing' && borrowingQuery.data) {
       const rows = borrowingQuery.data.map((b) => ({
         'Type': b.type,
@@ -53,7 +137,7 @@ export function ReportsPage() {
         'Due Date': b.due_date ? new Date(b.due_date).toLocaleDateString() : '',
         'Returned Date': b.returned_at ? new Date(b.returned_at).toLocaleDateString() : '',
       }))
-      exportToCsv('borrowing_activity_report.csv', rows)
+      exportToCsv(`borrowing_activity_report${suffix}.csv`, rows)
     } else if (activeTab === 'overdue' && overdueQuery.data) {
       const rows = overdueQuery.data.map((o) => ({
         'Item Name': o.item_name,
@@ -64,7 +148,7 @@ export function ReportsPage() {
         'Due Date': new Date(o.due_date).toLocaleDateString(),
         'Days Overdue': o.days_overdue,
       }))
-      exportToCsv('overdue_loans_report.csv', rows)
+      exportToCsv(`overdue_loans_report${suffix}.csv`, rows)
     } else if (activeTab === 'lost_damaged' && lostDamagedQuery.data) {
       const rows = lostDamagedQuery.data.map((l) => ({
         'Type': l.type,
@@ -74,11 +158,13 @@ export function ReportsPage() {
         'Unit Value (INR)': l.unit_value ?? '',
         'Notes': l.notes ?? '',
       }))
-      exportToCsv('lost_damaged_report.csv', rows)
+      exportToCsv(`lost_damaged_report${suffix}.csv`, rows)
     }
   }
 
   function handleExportXlsx() {
+    const suffix = startDate && endDate ? `_${startDate}_to_${endDate}` : '_all_time'
+
     if (activeTab === 'valuation' && valuationQuery.data) {
       const categoryRows = valuationQuery.data.by_category.map((c) => ({
         'Category Name': c.category_name,
@@ -90,7 +176,7 @@ export function ReportsPage() {
         'Location Name': l.location_name,
         'Physical Copies Count': l.copy_count,
       }))
-      exportToXlsx('inventory_valuation_report.xlsx', [
+      exportToXlsx(`inventory_valuation_report${suffix}.xlsx`, [
         { name: 'Valuation by Category', data: categoryRows },
         { name: 'Stock by Location', data: locationRows },
       ])
@@ -105,7 +191,7 @@ export function ReportsPage() {
         'Due Date': b.due_date ? new Date(b.due_date).toLocaleDateString() : '',
         'Returned Date': b.returned_at ? new Date(b.returned_at).toLocaleDateString() : '',
       }))
-      exportToXlsx('borrowing_activity_report.xlsx', [{ name: 'Borrowing Activity', data: rows }])
+      exportToXlsx(`borrowing_activity_report${suffix}.xlsx`, [{ name: 'Borrowing Activity', data: rows }])
     } else if (activeTab === 'overdue' && overdueQuery.data) {
       const rows = overdueQuery.data.map((o) => ({
         'Item Name': o.item_name,
@@ -116,7 +202,7 @@ export function ReportsPage() {
         'Due Date': new Date(o.due_date).toLocaleDateString(),
         'Days Overdue': o.days_overdue,
       }))
-      exportToXlsx('overdue_loans_report.xlsx', [{ name: 'Overdue Loans', data: rows }])
+      exportToXlsx(`overdue_loans_report${suffix}.xlsx`, [{ name: 'Overdue Loans', data: rows }])
     } else if (activeTab === 'lost_damaged' && lostDamagedQuery.data) {
       const rows = lostDamagedQuery.data.map((l) => ({
         'Type': l.type,
@@ -126,7 +212,7 @@ export function ReportsPage() {
         'Unit Value (INR)': l.unit_value ?? '',
         'Notes': l.notes ?? '',
       }))
-      exportToXlsx('lost_damaged_report.xlsx', [{ name: 'Write-Offs', data: rows }])
+      exportToXlsx(`lost_damaged_report${suffix}.xlsx`, [{ name: 'Write-Offs', data: rows }])
     }
   }
 
@@ -137,10 +223,10 @@ export function ReportsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
             <BarChart3 className="size-6 text-primary" />
-            Reports & Analytics
+            Reports & Analytics Engine
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Inventory valuation, borrowing trends, overdue tracking, and loss write-off reports.
+            Custom date range reports for inventory valuation, borrowing volume, overdue tracking, and write-offs.
           </p>
         </div>
 
@@ -167,6 +253,99 @@ export function ReportsPage() {
             <Printer className="size-3.5" />
             Print / PDF
           </button>
+        </div>
+      </div>
+
+      {/* Universal Custom Date Range Selector */}
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
+        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          <Calendar className="size-4 text-primary" />
+          <span>Report Time Window & Date Range Filters</span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => handlePresetChange('all')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              preset === 'all'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            All Time
+          </button>
+          <button
+            onClick={() => handlePresetChange('today')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              preset === 'today'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            Today
+          </button>
+          <button
+            onClick={() => handlePresetChange('7days')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              preset === '7days'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            Last 7 Days
+          </button>
+          <button
+            onClick={() => handlePresetChange('30days')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              preset === '30days'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            Last 30 Days
+          </button>
+          <button
+            onClick={() => handlePresetChange('this_month')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              preset === 'this_month'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            This Month
+          </button>
+
+          {/* Custom Date Pickers */}
+          <div className="flex items-center gap-2 ml-auto text-xs text-muted-foreground">
+            <span>Custom:</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => {
+                setStartDate(e.target.value)
+                setPreset('custom')
+              }}
+              className="rounded-md border border-border bg-transparent px-2.5 py-1 text-xs text-foreground focus:border-primary"
+            />
+            <span>to</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => {
+                setEndDate(e.target.value)
+                setPreset('custom')
+              }}
+              className="rounded-md border border-border bg-transparent px-2.5 py-1 text-xs text-foreground focus:border-primary"
+            />
+            {(startDate || endDate) && (
+              <button
+                onClick={() => handlePresetChange('all')}
+                className="text-xs text-primary hover:underline ml-1"
+              >
+                Reset
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -200,7 +379,7 @@ export function ReportsPage() {
               : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
           }`}
         >
-          Overdue Loans
+          Overdue Loans & Reminders
           {(overdueQuery.data?.length ?? 0) > 0 && (
             <span className="rounded-full bg-red-500 px-1.5 py-0.2 text-[10px] font-bold text-white">
               {overdueQuery.data?.length}
@@ -309,24 +488,6 @@ export function ReportsPage() {
       {/* TAB 2: Borrowing Activity */}
       {activeTab === 'borrowing' && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
-            <Calendar className="size-4 text-muted-foreground" />
-            <span className="text-xs font-semibold text-muted-foreground uppercase">Filter Date:</span>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="rounded-md border border-border bg-transparent px-2.5 py-1 text-xs text-foreground"
-            />
-            <span className="text-xs text-muted-foreground">to</span>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="rounded-md border border-border bg-transparent px-2.5 py-1 text-xs text-foreground"
-            />
-          </div>
-
           {borrowingQuery.isLoading ? (
             <div className="h-48 animate-pulse rounded-xl bg-muted/60" />
           ) : borrowingQuery.data && borrowingQuery.data.length > 0 ? (
@@ -388,6 +549,39 @@ export function ReportsPage() {
       {/* TAB 3: Overdue Loans */}
       {activeTab === 'overdue' && (
         <div className="space-y-4">
+          {/* Overdue Action Banner */}
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+            <div className="flex items-center gap-3">
+              <Mail className="size-5 text-red-600" />
+              <div>
+                <p className="text-sm font-semibold text-red-900 dark:text-red-300">
+                  Automated Due & Overdue Email Reminders
+                </p>
+                <p className="text-xs text-red-700 dark:text-red-400">
+                  Dispatch email notifications to borrowers with loans due today or overdue.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => void handleSendAllDueReminders()}
+              disabled={sendingReminders || (overdueQuery.data?.length ?? 0) === 0}
+              className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-red-700 transition-all disabled:opacity-50"
+            >
+              {sendingReminders ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Dispatching Emails...
+                </>
+              ) : (
+                <>
+                  <Send className="size-3.5" />
+                  Send Due Reminders Now
+                </>
+              )}
+            </button>
+          </div>
+
           {overdueQuery.isLoading ? (
             <div className="h-48 animate-pulse rounded-xl bg-muted/60" />
           ) : overdueQuery.data && overdueQuery.data.length > 0 ? (
@@ -428,7 +622,7 @@ export function ReportsPage() {
             </div>
           ) : (
             <div className="p-12 text-center text-sm text-emerald-600 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
-              🎉 Outstanding! There are currently zero overdue items.
+              🎉 Outstanding! There are currently zero overdue items for this date filter.
             </div>
           )}
         </div>
@@ -483,7 +677,7 @@ export function ReportsPage() {
             </div>
           ) : (
             <div className="p-12 text-center text-sm text-muted-foreground rounded-xl border border-border bg-card">
-              No lost or damaged items logged.
+              No lost or damaged items logged for this date range.
             </div>
           )}
         </div>

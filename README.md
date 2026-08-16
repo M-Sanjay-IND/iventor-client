@@ -1,81 +1,230 @@
-# Inventor Client
+# Inventor Client — Enterprise Cloud Inventory Platform
 
-Enterprise-grade cloud inventory management platform.
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg?style=flat&logo=typescript)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19.2-61DAFB.svg?style=flat&logo=react)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-6.0-646CFF.svg?style=flat&logo=vite)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.1-38B2AC.svg?style=flat&logo=tailwind-css)](https://tailwindcss.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E.svg?style=flat&logo=supabase)](https://supabase.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Overview
+> **Inventor Client** is a domain-agnostic, enterprise-grade cloud inventory and asset lifecycle management platform. Engineered for universities, enterprise research labs, healthcare systems, high-throughput warehouses, and hardware engineering facilities.
 
-Inventor Client manages **any** type of physical inventory — libraries, warehouses, hospitals, schools, laboratories, IT assets, and more. It is a domain-agnostic platform, not a book management system.
+---
 
-## Tech Stack
+## 📑 Table of Contents
 
-| Layer | Technology |
-|---|---|
-| **Frontend** | React, TypeScript, Vite, Tailwind CSS, shadcn/ui |
-| **Backend** | Supabase (Auth, PostgreSQL, Storage, Edge Functions, Realtime) |
-| **Hosting** | Vercel (frontend), Supabase (backend) |
+- [System Architecture](#-system-architecture)
+- [Key Capabilities](#-key-capabilities)
+  - [1. Dual Interface Topology](#1-dual-interface-topology)
+  - [2. Shared Item QR & Physical Copy Auto-Resolution](#2-shared-item-qr--physical-copy-auto-resolution)
+  - [3. Single-Sheet Unified Bulk Onboarding](#3-single-sheet-unified-bulk-onboarding)
+  - [4. Transaction Lifecycle & Admin Overrides](#4-transaction-lifecycle--admin-overrides)
+  - [5. Reporting & Analytics Engine with Custom Date Ranges](#5-reporting--analytics-engine-with-custom-date-ranges)
+  - [6. Digital Receipts & Automated Due Date Reminders](#6-digital-receipts--automated-due-date-reminders)
+- [Tech Stack](#-tech-stack)
+- [Database Schema & Entity Relationships](#-database-schema--entity-relationships)
+- [Security & Row-Level Security (RLS)](#-security--row-level-security-rls)
+- [Getting Started](#-getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation & Setup](#installation--setup)
+  - [Available Scripts](#available-scripts)
+- [Deployment](#-deployment)
 
-## Getting Started
+---
 
-### Prerequisites
+## 🏛 System Architecture
 
-- Node.js >= 20
-- npm >= 10
-- Supabase project (see `.env.example`)
+Inventor Client is designed around a clean, feature-driven hexagonal architecture that strictly separates administrative operations from high-speed counter terminal interactions.
 
-### Setup
+```mermaid
+graph TD
+    subgraph Client Application [React 19 + TypeScript SPA]
+        AdminApp["Admin Command Center (/admin)"]
+        CounterTerminal["Dedicated Counter Terminal (/counter)"]
+        ScannerEngine["QR Scanner & Cart Engine"]
+    end
 
-```bash
-# Clone the repository
-git clone https://github.com/M-Sanjay-IND/iventor-client.git
-cd iventor-client
+    subgraph Security & RLS Layer
+        AuthMFA["Admin MFA / Argon2 Auth"]
+        BorrowerOTP["Borrower Transient OTP Session"]
+        RLSPolicies["PostgreSQL Row-Level Security"]
+    end
 
-# Install dependencies
-npm install
+    subgraph Backend & Database [Supabase PostgreSQL 15]
+        ItemsTable[("inventory_items")]
+        CopiesTable[("inventory_copies")]
+        QrTable[("qr_codes")]
+        TxLedger[("transactions")]
+        StorageBucket[("Supabase Storage: QR Assets")]
+        EdgeFunctions[("Edge Function: send-email")]
+    end
 
-# Copy environment template and fill in values
-cp .env.example .env
-
-# Start development server
-npm run dev
+    AdminApp --> AuthMFA --> RLSPolicies --> Backend & Database
+    CounterTerminal --> BorrowerOTP --> ScannerEngine --> RLSPolicies --> Backend & Database
+    ScannerEngine --> EdgeFunctions
 ```
 
-### Scripts
+---
 
-| Script | Description |
-|---|---|
-| `npm run dev` | Start Vite dev server |
-| `npm run build` | Type-check and build for production |
-| `npm run preview` | Preview production build locally |
-| `npm run lint` | Run ESLint (zero warnings allowed) |
-| `npm run format` | Format code with Prettier |
-| `npm run typecheck` | Run TypeScript type checking |
-| `npm run test` | Run tests with Vitest |
-| `npm run validate` | Run all checks (typecheck + lint + format + test) |
+## 🌟 Key Capabilities
 
-## Architecture
+### 1. Dual Interface Topology
+* **Admin Command Center (`/admin`)**: Multi-category inventory management, batch QR generation, sticker sheet printing layouts, transaction override ledgers, custom date range financial valuation reports, and audit tracking.
+* **Counter Terminal (`/counter`)**: High-speed, touch-optimized kiosk designed for lab desks. Borrowers authenticate via transient 6-digit email OTPs without creating permanent user accounts.
 
-This project uses **feature-based architecture**. Each domain (inventory, QR, borrow, etc.) is self-contained under `src/features/`.
+### 2. Shared Item QR & Physical Copy Auto-Resolution
+* Supports both **Physical Copy QR Codes** (1 unique code per physical asset) and **Shared Item-Level QR Codes** (1 shared code per product category/bin).
+* When a shared Item QR is scanned:
+  * **Borrow Mode**: Auto-picks the earliest available physical copy (`copy_number ASC`) and reserves it.
+  * **Return Mode**: Read-only borrower active loans checklist with live scan validation; auto-resolves the active borrowed copy and marks it returned.
 
-See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
+### 3. Single-Sheet Unified Bulk Onboarding
+* Import entire facility inventories from a **single `.xlsx` or `.csv` spreadsheet**.
+* Automatically detects and creates missing Catalog Items, Categories, Locations/Racks, generates physical copy quantities, and generates vector QR codes in a single operation.
 
-## Git Workflow
+### 4. Transaction Lifecycle & Admin Overrides
+* Immutable transaction ledger tracking `borrow`, `return`, `lost`, and `damaged` states.
+* Real-time overdue loan tracking calculating days past return window.
+* Full administrative override capabilities: **Force Return**, **Mark as Lost**, and **Mark as Damaged** with audit reason logging.
 
-This project follows **enterprise GitHub Flow** with conventional commits.
+### 5. Reporting & Analytics Engine with Custom Date Ranges
+* **Inventory Valuation & Stock Summary**: Real-time asset valuation by category and storage location.
+* **Borrowing Volume Activity**: Borrow and return trends across arbitrary date windows.
+* **Overdue Tracking**: Live overdue loan ledger with borrower contact details and days overdue.
+* **Loss & Damage Write-Offs**: Financial impact audit of decommissioned or damaged assets.
+* **Multi-Format Export**: 1-click export to CSV, multi-sheet formatted Excel (`.xlsx`), and clean print/PDF layouts.
 
-- `main` — Production-ready code only
-- `develop` — Integration branch
-- `feature/*` — Feature branches from `develop`
-- `release/*` — Release candidates
-- `hotfix/*` — Emergency production fixes
+### 6. Digital Receipts & Automated Due Date Reminders
+* Instant digital receipt emails sent on every borrow and return transaction.
+* Automated due date reminder engine notifying borrowers of upcoming or overdue items.
 
-## Documentation
+---
 
-| Document | Description |
-|---|---|
-| [SPEC.md](SPEC.md) | Master Engineering Specification |
-| [STANDARDS.md](STANDARDS.md) | Software Engineering Standards |
-| [CONSTITUTION.md](CONSTITUTION.md) | Immutable Engineering Constitution |
+## 🛠 Tech Stack
 
-## License
+| Layer | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Framework** | [React 19](https://react.dev/) + [TypeScript 5.8](https://www.typescriptlang.org/) | Strict type-safety, zero-runtime overhead |
+| **Build Tool** | [Vite 6](https://vitejs.dev/) | Sub-second HMR & optimized ESM bundling |
+| **Styling** | [Tailwind CSS v4](https://tailwindcss.com/) | Modern design tokens, glassmorphism, responsive UI |
+| **State & Cache** | [TanStack React Query v5](https://tanstack.com/query/latest) | Optimistic mutations, background auto-polling |
+| **Database & Auth** | [Supabase PostgreSQL](https://supabase.com/) | RLS, RPC functions, transient OTP auth, Storage |
+| **Spreadsheets** | [SheetJS (xlsx)](https://docs.sheetjs.com/) | Parsing and generating Excel `.xlsx` / `.csv` |
+| **QR Engine** | `qrcode` + SVG Rendering | High-resolution 300 DPI vector QR generation |
+| **Testing** | [Vitest](https://vitest.dev/) + [JSDOM](https://github.com/jsdom/jsdom) | Fast unit & integration test runner |
 
-Private — All rights reserved.
+---
+
+## 🗄 Database Schema & Entity Relationships
+
+```mermaid
+erDiagram
+    CATEGORIES ||--o{ INVENTORY_ITEMS : categorizes
+    LOCATIONS ||--o{ INVENTORY_COPIES : stores
+    INVENTORY_ITEMS ||--o{ INVENTORY_COPIES : contains
+    INVENTORY_ITEMS ||--o| QR_CODES : "item qr"
+    INVENTORY_COPIES ||--o| QR_CODES : "copy qr"
+    INVENTORY_COPIES ||--o{ TRANSACTIONS : tracks
+    TERMINAL_SESSIONS ||--o{ BORROWER_SESSIONS : validates
+    BORROWER_SESSIONS ||--o{ TRANSACTIONS : authorizes
+
+    INVENTORY_ITEMS {
+        uuid id PK
+        string name
+        uuid category_id FK
+        numeric unit_value
+        string sku
+        string manufacturer
+        string brand
+        string model
+    }
+
+    INVENTORY_COPIES {
+        uuid id PK
+        uuid item_id FK
+        uuid location_id FK
+        int copy_number
+        string condition
+        string status
+        string asset_tag
+    }
+
+    TRANSACTIONS {
+        uuid id PK
+        string type
+        uuid copy_id FK
+        string borrower_email
+        timestamptz borrowed_at
+        timestamptz returned_at
+        timestamptz due_date
+        text notes
+    }
+```
+
+---
+
+## 🔒 Security & Row-Level Security (RLS)
+
+- **Principle of Least Privilege**: Counter terminals operate through secure PostgreSQL `SECURITY DEFINER` RPC functions with strict parameter validation.
+- **Strict RLS Enforcement**: Public anon users cannot query inventory records or transactions directly.
+- **Transient Borrower Tokens**: Borrower tokens expire automatically after 10 minutes or upon explicit checkout.
+- **Audit Logging**: Every state change, authentication attempt, import operation, and admin override is logged permanently to `audit_logs`.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js >= 20.x
+- npm >= 10.x
+- A Supabase Project ([supabase.com](https://supabase.com))
+
+### Installation & Setup
+
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/M-Sanjay-IND/iventor-client.git
+   cd iventor-client
+   ```
+
+2. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Configure Environment Variables**:
+   Create a `.env` file from `.env.example`:
+   ```env
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key
+   VITE_COUNTER_DUE_DAYS=7
+   VITE_COUNTER_EMAIL_DOMAIN=yourdomain.edu
+   ```
+
+4. **Apply Database Migrations**:
+   Run the SQL scripts in `supabase/migrations/` sequentially inside your Supabase SQL Editor.
+
+5. **Start Local Development Server**:
+   ```bash
+   npm run dev
+   ```
+
+---
+
+## 📜 Available Scripts
+
+| Command | Description |
+| :--- | :--- |
+| `npm run dev` | Launch local development server with Vite HMR |
+| `npm run build` | Validate TypeScript and compile production bundle |
+| `npm test` | Run automated test suite with Vitest |
+| `npm run typecheck` | Perform strict TypeScript type checking (`tsc -b --noEmit`) |
+| `npm run lint` | Run ESLint with zero-warning threshold |
+| `npm run format` | Format codebase using Prettier |
+| `npm run validate` | Complete CI verification (`typecheck + lint + format + test`) |
+
+---
+
+## 📄 License
+
+Distributed under the MIT License. See `LICENSE` for details.

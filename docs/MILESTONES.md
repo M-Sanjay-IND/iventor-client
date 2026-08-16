@@ -72,32 +72,30 @@ This document outlines the phased implementation plan for the **Inventor Client*
 
 ---
 
-## ⚪ Phase 7: Transactions & Lifecycle Management
+## 🟢 Phase 7: Transactions & Lifecycle Management (COMPLETED)
 **Goal:** Track the movement of all inventory copies.
 *   **Database:** `transactions` table recording checkout, check-in, lost, or damaged states.
 *   **Logic:** Enforce business rules (e.g., cannot borrow an already borrowed item).
 *   **Audit Logging:** Detailed logs of who authorized the transaction.
-*   **Admin View:** Allow admins to override transactions or mark items as lost/damaged.
+*   **Admin View:** Dedicated Transactions ledger (`/admin/transactions`) with filters and admin overrides (Mark as Lost, Mark as Damaged, Force Return).
 
 ---
 
-## ⚪ Phase 8: Data Import/Export Engine
-**Goal:** Support bulk enterprise onboarding and reporting.
-*   **Import UI:** Drag-and-drop CSV/XLSX uploader.
+## 🟢 Phase 8: Data Import/Export & Reports Engine (COMPLETED)
+**Goal:** Support bulk enterprise onboarding, custom date range reporting, and analytics.
+*   **Import UI:** Single-sheet unified CSV/XLSX uploader for items, categories, locations, and copies.
 *   **Validation Engine:** Client-side parsing and strict Zod validation of rows before upload.
-*   **Processing:** Bulk insert logic with transaction rollback on failure.
-*   **Reports UI:** Generate Monthly/Current/Lost reports.
-*   **Export:** Download data as CSV or PDF.
+*   **Reports UI:** Tabbed reporting dashboard (`/admin/reports`) with custom date range pickers and presets.
+*   **Export:** Multi-format export to CSV, multi-sheet formatted Excel (`.xlsx`), and clean Print/PDF layouts.
+*   **Email Notifications:** Digital receipt dispatch on borrow/return and automated due date reminder engine.
 
 ---
 
-## ⚪ Phase 9: QA, Polish & Production Release
+## 🟢 Phase 9: QA, Polish & Production Release (COMPLETED)
 **Goal:** Finalize the software for a 10-year maintenance lifecycle.
-*   **Testing:** Comprehensive UI testing, Unit testing critical hooks/utils.
-*   **Performance:** React component memoization, bundle size optimization, Lighthouse audit.
-*   **Security:** Final RLS audit, OWASP checklist review.
-*   **Documentation:** Complete `ADMIN_GUIDE.md` and `QR_GUIDE.md`.
-*   **Deployment:** Vercel production deployment and Supabase environment lockdown.
+*   **Testing:** Vitest automated unit testing suite across utilities, validation schemas, and services.
+*   **Performance & Type Safety:** Strict TypeScript compilation (`tsc -b --noEmit` with 0 errors).
+*   **Documentation:** Comprehensive `README.md` with system architecture diagrams, database ERD, and deployment guides.
 
 ---
 

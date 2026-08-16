@@ -4,20 +4,21 @@ import {
   getBorrowingActivityReport,
   getOverdueLoansReport,
   getLostDamagedReport,
+  type ReportDateFilter,
 } from '../services/reports.service'
 
 export const reportKeys = {
   all: ['reports'] as const,
-  valuation: () => [...reportKeys.all, 'valuation'] as const,
+  valuation: (filter?: ReportDateFilter) => [...reportKeys.all, 'valuation', filter] as const,
   borrowing: (start?: string, end?: string) => [...reportKeys.all, 'borrowing', { start, end }] as const,
-  overdue: () => [...reportKeys.all, 'overdue'] as const,
-  lostDamaged: () => [...reportKeys.all, 'lostDamaged'] as const,
+  overdue: (filter?: ReportDateFilter) => [...reportKeys.all, 'overdue', filter] as const,
+  lostDamaged: (filter?: ReportDateFilter) => [...reportKeys.all, 'lostDamaged', filter] as const,
 }
 
-export function useValuationReport() {
+export function useValuationReport(filter?: ReportDateFilter) {
   return useQuery({
-    queryKey: reportKeys.valuation(),
-    queryFn: getValuationReport,
+    queryKey: reportKeys.valuation(filter),
+    queryFn: () => getValuationReport(filter),
   })
 }
 
@@ -28,16 +29,16 @@ export function useBorrowingReport(startDate?: string, endDate?: string) {
   })
 }
 
-export function useOverdueReport() {
+export function useOverdueReport(filter?: ReportDateFilter) {
   return useQuery({
-    queryKey: reportKeys.overdue(),
-    queryFn: getOverdueLoansReport,
+    queryKey: reportKeys.overdue(filter),
+    queryFn: () => getOverdueLoansReport(filter),
   })
 }
 
-export function useLostDamagedReport() {
+export function useLostDamagedReport(filter?: ReportDateFilter) {
   return useQuery({
-    queryKey: reportKeys.lostDamaged(),
-    queryFn: getLostDamagedReport,
+    queryKey: reportKeys.lostDamaged(filter),
+    queryFn: () => getLostDamagedReport(filter),
   })
 }

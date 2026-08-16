@@ -17,6 +17,7 @@ import { ScannerInput } from '../components/ScannerInput'
 import { TransactionReceipt } from '../components/TransactionReceipt'
 import { SessionTimer } from '../components/SessionTimer'
 import { Spinner } from '@/components/ui/spinner'
+import { sendBorrowReceiptEmail, sendReturnReceiptEmail } from '@/services/email.service'
 
 type FlowStep = 'email' | 'otp' | 'mode' | 'scanner' | 'receipt'
 
@@ -131,6 +132,14 @@ export function CounterPage() {
           dueDays: COUNTER_DUE_DAYS,
         })
         toast.success(`Successfully borrowed ${txs.length} ${txs.length === 1 ? 'unit' : 'units'}!`)
+
+        // Trigger digital receipt email
+        void sendBorrowReceiptEmail({
+          borrowerEmail: email,
+          items,
+          dueDate: txs[0]?.due_date,
+          transactionId: txs[0]?.id,
+        })
       } else {
         txs = await bulkReturnMutation.mutateAsync({
           sessionToken,
@@ -138,6 +147,13 @@ export function CounterPage() {
           qrUids: qrUids.length > 0 ? qrUids : undefined,
         })
         toast.success(`Successfully returned ${txs.length} ${txs.length === 1 ? 'unit' : 'units'}!`)
+
+        // Trigger digital return receipt email
+        void sendReturnReceiptEmail({
+          borrowerEmail: email,
+          items,
+          transactionId: txs[0]?.id,
+        })
       }
 
       setCompletedTransactions(txs)

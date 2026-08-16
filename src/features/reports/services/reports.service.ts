@@ -6,13 +6,23 @@ import type {
   LostDamagedReportItem,
 } from '../types'
 
-export async function getValuationReport(): Promise<ValuationReportData> {
-  // 1. Fetch items with category and copies
-  const { data: items, error: itemError } = await supabase
+export interface ReportDateFilter {
+  startDate?: string
+  endDate?: string
+}
+
+export async function getValuationReport(filter: ReportDateFilter = {}): Promise<ValuationReportData> {
+  const { startDate, endDate } = filter
+
+  let query = supabase
     .from('inventory_items')
-    .select('id, name, unit_value, category:categories(id, name), copies:inventory_copies(id, status, location:locations(name))')
+    .select('id, name, unit_value, created_at, category:categories(id, name), copies:inventory_copies(id, status, created_at, location:locations(name))')
     .is('deleted_at', null)
 
+  if (startDate) query = query.gte('created_at', startDate)
+  if (endDate) query = query.lte('created_at', endDate)
+
+  const { data: items, error: itemError } = await query
   if (itemError) throw new Error(itemError.message)
 
   let totalItems = 0
@@ -111,9 +121,11 @@ export async function getBorrowingActivityReport(
   })
 }
 
-export async function getOverdueLoansReport(): Promise<OverdueLoanItem[]> {
+export async function getOverdueLoansReport(filter: ReportDateFilter = {}): Promise<OverdueLoanItem[]> {
+  const { startDate, endDate } = filter
   const nowIso = new Date().toISOString()
-  const { data, error } = await supabase
+
+  let query = supabase
     .from('transactions')
     .select('id, copy_id, borrower_email, borrowed_at, due_date, copy:inventory_copies(status, copy_number, item:inventory_items(name, category:categories(name)))')
     .eq('type', 'borrow')
@@ -121,6 +133,10 @@ export async function getOverdueLoansReport(): Promise<OverdueLoanItem[]> {
     .is('returned_at', null)
     .order('due_date', { ascending: true })
 
+  if (startDate) query = query.gte('due_date', startDate)
+  if (endDate) query = query.lte('due_date', endDate)
+
+  const { data, error } = await query
   if (error) throw new Error(error.message)
 
   const now = new Date()
@@ -150,13 +166,19 @@ export async function getOverdueLoansReport(): Promise<OverdueLoanItem[]> {
     })
 }
 
-export async function getLostDamagedReport(): Promise<LostDamagedReportItem[]> {
-  const { data, error } = await supabase
+export async function getLostDamagedReport(filter: ReportDateFilter = {}): Promise<LostDamagedReportItem[]> {
+  const { startDate, endDate } = filter
+
+  let query = supabase
     .from('transactions')
     .select('id, copy_id, type, notes, created_at, copy:inventory_copies(copy_number, item:inventory_items(name, unit_value))')
     .in('type', ['lost', 'damaged'])
     .order('created_at', { ascending: false })
 
+  if (startDate) query = query.gte('created_at', startDate)
+  if (endDate) query = query.lte('created_at', endDate)
+
+  const { data, error } = await query
   if (error) throw new Error(error.message)
 
   return (data ?? []).map((t) => {
