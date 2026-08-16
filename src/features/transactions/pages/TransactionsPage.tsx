@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { ArrowLeftRight, RefreshCw } from 'lucide-react'
+import { ArrowLeftRight, RefreshCw, Download, FileSpreadsheet } from 'lucide-react'
 import { useTransactions } from '../hooks/transactions.queries'
 import { TransactionFilters } from '../components/TransactionFilters'
 import { TransactionsTable } from '../components/TransactionsTable'
 import { MarkLostDamagedModal } from '../components/MarkLostDamagedModal'
 import { DEFAULT_PAGE_SIZE } from '@/constants'
+import { exportToXlsx, exportToCsv } from '@/features/reports/utils/export.utils'
 import type { TransactionType, TransactionWithDetails } from '../types'
 
 export function TransactionsPage() {
@@ -40,6 +41,102 @@ export function TransactionsPage() {
     setActionType(null)
   }
 
+  function formatUnifiedDate(tx: TransactionWithDetails): string {
+    const borrowDate = tx.borrowed_at ? new Date(tx.borrowed_at).toLocaleDateString() : null
+    const returnDate = tx.returned_at ? new Date(tx.returned_at).toLocaleDateString() : null
+    const dueDate = tx.due_date ? new Date(tx.due_date).toLocaleDateString() : null
+
+    if (tx.type === 'return') {
+      if (borrowDate && returnDate) {
+        return `${borrowDate} → ${returnDate} (Returned)`
+      }
+      return `Returned on ${returnDate || new Date(tx.created_at).toLocaleDateString()}`
+    }
+
+    if (tx.type === 'borrow') {
+      if (returnDate) {
+        return `${borrowDate || new Date(tx.created_at).toLocaleDateString()} → ${returnDate} (Returned)`
+      }
+      if (dueDate) {
+        const isOverdue = new Date(tx.due_date!) < new Date()
+        return `${borrowDate || new Date(tx.created_at).toLocaleDateString()} (Due: ${dueDate})${
+          isOverdue ? ' [OVERDUE]' : ' [ACTIVE LOAN]'
+        }`
+      }
+      return `${borrowDate || new Date(tx.created_at).toLocaleDateString()} (No due date)`
+    }
+
+    return `Logged on ${new Date(tx.created_at).toLocaleDateString()}`
+  }
+
+  // Export with single unified date column for Borrow and Return
+  function handleExportUnifiedXlsx() {
+    const records = data?.data ?? []
+    if (records.length === 0) return
+
+    const rows = records.map((tx) => {
+      const item = tx.copy?.item
+      const copy = tx.copy
+      const isOverdue =
+        tx.type === 'borrow' &&
+        tx.due_date &&
+        new Date(tx.due_date) < new Date() &&
+        copy?.status === 'borrowed'
+
+      return {
+        'Transaction ID': tx.id,
+        'Type': tx.type.toUpperCase(),
+        'Item Name': item?.name ?? 'Unknown Item',
+        'Category': item?.category?.name ?? 'Uncategorized',
+        'Copy Number': copy?.copy_number ?? 1,
+        'SKU': item?.sku ?? '',
+        'Borrower Email': tx.borrower_email,
+        'Borrow & Return Date': formatUnifiedDate(tx),
+        'Status': isOverdue
+          ? 'OVERDUE'
+          : tx.type === 'borrow' && copy?.status === 'borrowed'
+          ? 'ACTIVE LOAN'
+          : 'COMPLETED',
+        'Location': copy?.location?.name ?? 'Unassigned',
+        'Condition Notes': tx.notes ?? '',
+      }
+    })
+
+    const suffix = startDate && endDate ? `_${startDate}_to_${endDate}` : '_all'
+    exportToXlsx(`transactions_ledger_unified_date${suffix}.xlsx`, [
+      { name: 'Transactions (Unified Date)', data: rows },
+    ])
+  }
+
+  // Standard multi-column export
+  function handleExportStandardCsv() {
+    const records = data?.data ?? []
+    if (records.length === 0) return
+
+    const rows = records.map((tx) => {
+      const item = tx.copy?.item
+      const copy = tx.copy
+
+      return {
+        'Transaction ID': tx.id,
+        'Type': tx.type,
+        'Item Name': item?.name ?? 'Unknown Item',
+        'Category': item?.category?.name ?? 'Uncategorized',
+        'Copy Number': copy?.copy_number ?? 1,
+        'SKU': item?.sku ?? '',
+        'Borrower Email': tx.borrower_email,
+        'Borrowed Date': tx.borrowed_at ? new Date(tx.borrowed_at).toLocaleDateString() : '',
+        'Due Date': tx.due_date ? new Date(tx.due_date).toLocaleDateString() : '',
+        'Returned Date': tx.returned_at ? new Date(tx.returned_at).toLocaleDateString() : '',
+        'Status': copy?.status ?? '',
+        'Notes': tx.notes ?? '',
+      }
+    })
+
+    const suffix = startDate && endDate ? `_${startDate}_to_${endDate}` : '_all'
+    exportToCsv(`transactions_ledger${suffix}.csv`, rows)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -54,14 +151,36 @@ export function TransactionsPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => void refetch()}
-          disabled={isFetching}
-          className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`size-3.5 ${isFetching ? 'animate-spin' : ''}`} />
-          Refresh Ledger
-        </button>
+        {/* Action & Export buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleExportUnifiedXlsx}
+            disabled={!data || data.data.length === 0}
+            className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-500/20 transition-colors shadow-sm disabled:opacity-50"
+            title="Download XLSX with Borrow & Return dates in a single column"
+          >
+            <FileSpreadsheet className="size-3.5" />
+            Export XLSX (Single Date Col)
+          </button>
+
+          <button
+            onClick={handleExportStandardCsv}
+            disabled={!data || data.data.length === 0}
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-sm disabled:opacity-50"
+          >
+            <Download className="size-3.5" />
+            Export CSV
+          </button>
+
+          <button
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors disabled:opacity-50 shadow-sm"
+          >
+            <RefreshCw className={`size-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filters Bar */}
