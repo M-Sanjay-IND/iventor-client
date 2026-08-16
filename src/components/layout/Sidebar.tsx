@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
   Package,
+  ArrowLeftRight,
   QrCode,
   BarChart3,
   Settings,
@@ -15,6 +16,7 @@ import type { LucideIcon } from 'lucide-react'
 const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard,
   Package,
+  ArrowLeftRight,
   QrCode,
   BarChart3,
   Settings,

@@ -105,6 +105,7 @@ export const AUDIT_ACTIONS = {
 export const NAV_ITEMS = [
   { path: '/admin', label: 'Dashboard', icon: 'LayoutDashboard' },
   { path: '/admin/inventory', label: 'Inventory', icon: 'Package' },
+  { path: '/admin/transactions', label: 'Transactions', icon: 'ArrowLeftRight' },
   { path: '/admin/qr', label: 'QR Codes', icon: 'QrCode' },
   { path: '/admin/reports', label: 'Reports', icon: 'BarChart3' },
   { path: '/admin/settings', label: 'Settings', icon: 'Settings' },
@@ -114,6 +115,7 @@ export const NAV_ITEMS = [
 export const ROUTE_LABELS: Record<string, string> = {
   admin: 'Dashboard',
   inventory: 'Inventory',
+  transactions: 'Transactions',
   qr: 'QR Codes',
   reports: 'Reports',
   settings: 'Settings',
