@@ -26,6 +26,38 @@ export interface DueReminderParams {
 }
 
 /**
+ * Sends borrower one-time password (OTP) verification email.
+ */
+export async function sendBorrowerOtpEmail(borrowerEmail: string, otp: string) {
+  const subject = `[${APP_NAME}] Your Counter Terminal Verification Code: ${otp}`
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 540px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px; color: #1e293b; text-align: center;">
+      <h2 style="color: #0f172a; margin-top: 0;">Counter Terminal Verification</h2>
+      <p style="color: #64748b; font-size: 14px;">Use the verification code below to authorize your borrowing/return session at the counter:</p>
+      
+      <div style="margin: 28px 0; padding: 18px; background: #f1f5f9; border-radius: 10px; display: inline-block;">
+        <span style="font-family: monospace; font-size: 32px; font-weight: 700; letter-spacing: 6px; color: #0284c7;">${otp}</span>
+      </div>
+      
+      <p style="font-size: 12px; color: #94a3b8; margin: 20px 0 0 0;">
+        This code expires in 10 minutes. If you did not request this code, you can safely ignore this email.
+      </p>
+    </div>
+  `
+
+  console.log(`[EMAIL DISPATCH] Sent Borrower OTP to ${borrowerEmail}: ${otp}`)
+
+  try {
+    await supabase.functions.invoke('send-email', {
+      body: { to: borrowerEmail, subject, html },
+    })
+  } catch (err) {
+    console.warn('[EMAIL WARNING] Supabase Edge Function send-email invoke skipped or unconfigured:', err)
+  }
+}
+
+/**
  * Sends a digital borrow receipt to the borrower's email.
  */
 export async function sendBorrowReceiptEmail({

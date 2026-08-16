@@ -18,7 +18,11 @@ import { ScannerInput } from '../components/ScannerInput'
 import { TransactionReceipt } from '../components/TransactionReceipt'
 import { SessionTimer } from '../components/SessionTimer'
 import { Spinner } from '@/components/ui/spinner'
-import { sendBorrowReceiptEmail, sendReturnReceiptEmail } from '@/services/email.service'
+import {
+  sendBorrowReceiptEmail,
+  sendReturnReceiptEmail,
+  sendBorrowerOtpEmail,
+} from '@/services/email.service'
 
 type FlowStep = 'email' | 'otp' | 'mode' | 'scanner' | 'receipt'
 
@@ -64,9 +68,13 @@ export function CounterPage() {
       })
       setSessionId(res.session_id)
       setStep('otp')
+      
+      // Dispatch verification code email to borrower
+      void sendBorrowerOtpEmail(userEmail, res.otp)
+
       console.log('[DEV MODE] Borrower OTP Code:', res.otp)
-      toast.info(`[DEV MODE] Verification Code: ${res.otp}`, {
-        duration: 10000,
+      toast.info(`Verification code sent to ${userEmail}! (Dev code: ${res.otp})`, {
+        duration: 8000,
       })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to send OTP')
@@ -99,9 +107,13 @@ export function CounterPage() {
       terminalId: terminalSession.id,
     })
     setSessionId(res.session_id)
+    
+    // Dispatch new verification code email
+    void sendBorrowerOtpEmail(email, res.otp)
+
     console.log('[DEV MODE] Resent Borrower OTP Code:', res.otp)
-    toast.info(`[DEV MODE] New Verification Code: ${res.otp}`, {
-      duration: 10000,
+    toast.info(`New verification code sent! (Dev code: ${res.otp})`, {
+      duration: 8000,
     })
   }
 
