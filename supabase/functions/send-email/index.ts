@@ -1,4 +1,12 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+// @ts-nocheck
+// Supabase Edge Function: send-email (Deno runtime)
+
+declare const Deno: {
+  env: {
+    get: (key: string) => string | undefined
+  }
+  serve: (handler: (req: Request) => Promise<Response> | Response) => void
+}
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'inventory@system.local'
@@ -8,7 +16,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
