@@ -1,14 +1,8 @@
 /**
- * useLogin hook — multi-step login state machine.
+ * useLogin hook — admin login state machine.
  *
- * Manages the two-step admin login flow:
- *   Step 1: Email + Password → signInWithPassword
- *   Step 2: OTP Verification → verifyOtp
- *
- * States: credentials → otp → verifying → success / error
- *
- * @example
- * const { step, submitCredentials, submitOtp, error, isSubmitting } = useLogin()
+ * Manages admin authentication:
+ *   Submits email + password → verifies admin profile → records audit log → success.
  */
 
 import { useCallback, useState } from 'react'
@@ -20,18 +14,20 @@ import { loginSchema, type LoginFormValues } from '../validation/schemas'
 import { AUDIT_ACTIONS } from '@/constants'
 import type { LoginStep } from '../types'
 
+export const OTP_RESEND_COOLDOWN_S = 60
+
 interface UseLoginReturn {
   /** Current step of the login flow */
   step: LoginStep
-  /** Email used in the current login attempt (for OTP step) */
+  /** Email used in the current login attempt */
   email: string
   /** Whether a submission is in progress */
   isSubmitting: boolean
   /** react-hook-form instance for the credentials step */
   credentialsForm: ReturnType<typeof useForm<LoginFormValues>>
-  /** Submit credentials (step 1) */
+  /** Submit credentials */
   submitCredentials: (values: LoginFormValues) => Promise<void>
-  /** Submit OTP code (step 2) */
+  /** Submit OTP code (if enabled) */
   submitOtp: (otp: string) => Promise<void>
   /** Resend the OTP code */
   resendOtp: () => Promise<void>
@@ -40,11 +36,6 @@ interface UseLoginReturn {
   /** Error message, if any */
   error: string | null
 }
-
-/**
- * Seconds to wait before allowing OTP resend.
- */
-const OTP_RESEND_COOLDOWN_S = 60
 
 export function useLogin(): UseLoginReturn {
   const [step, setStep] = useState<LoginStep>('credentials')
@@ -62,9 +53,7 @@ export function useLogin(): UseLoginReturn {
   })
 
   /**
-   * Step 1: Submit email + password.
-   *
-   * On success, sends OTP and transitions to the OTP step.
+   * Submit email + password for admin login.
    */
   const submitCredentials = useCallback(
     async (values: LoginFormValues) => {
@@ -97,13 +86,19 @@ export function useLogin(): UseLoginReturn {
           )
         }
 
-        // Send OTP for step 2
-        await authService.sendOtp(values.email)
-        setEmail(values.email)
-        setStep('otp')
+        // Update last_login timestamp and audit log
+        await authService.updateLastLogin(session.user.id)
+        try {
+          await authService.recordAuditLog(AUDIT_ACTIONS.AUTH_LOGIN)
+        } catch {
+          // Non-critical
+        }
 
-        toast.success('Verification code sent', {
-          description: `A 6-digit code has been sent to ${values.email}`,
+        setEmail(values.email)
+        setStep('success')
+
+        toast.success('Welcome back', {
+          description: `Signed in as ${[profile.first_name, profile.last_name].filter(Boolean).join(' ') || values.email}`,
         })
       } catch (err) {
         const message =
@@ -130,9 +125,7 @@ export function useLogin(): UseLoginReturn {
   )
 
   /**
-   * Step 2: Submit OTP code.
-   *
-   * Verifies the OTP and completes authentication.
+   * Fallback OTP submit (if needed)
    */
   const submitOtp = useCallback(
     async (otp: string) => {
@@ -142,28 +135,16 @@ export function useLogin(): UseLoginReturn {
 
       try {
         await authService.verifyOtp(email, otp)
-
-        // Update last_login timestamp
         const session = await authService.getSession()
         if (session?.user) {
           await authService.updateLastLogin(session.user.id)
-          await authService.recordAuditLog(AUDIT_ACTIONS.AUTH_LOGIN)
         }
-
         setStep('success')
-
-        toast.success('Welcome back', {
-          description: 'You have been signed in successfully.',
-        })
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Invalid verification code'
         setError(message)
-        setStep('otp') // Go back to OTP input to retry
-
-        toast.error('Verification failed', {
-          description: 'The code you entered is incorrect. Please try again.',
-        })
+        setStep('otp')
       } finally {
         setIsSubmitting(false)
       }
@@ -171,31 +152,20 @@ export function useLogin(): UseLoginReturn {
     [email],
   )
 
-  /**
-   * Resend OTP to the same email.
-   */
   const resendOtp = useCallback(async () => {
+    if (!email) return
     setError(null)
-
     try {
       await authService.sendOtp(email)
-      toast.success('Code resent', {
-        description: `A new verification code has been sent to ${email}`,
-      })
+      toast.success('Code resent')
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to resend code'
-      toast.error('Resend failed', { description: message })
+      setError(err instanceof Error ? err.message : 'Failed to resend code')
     }
   }, [email])
 
-  /**
-   * Go back to the credentials step.
-   */
   const goBack = useCallback(() => {
-    setStep('credentials')
     setError(null)
-    setEmail('')
+    setStep('credentials')
   }, [])
 
   return {
@@ -210,5 +180,3 @@ export function useLogin(): UseLoginReturn {
     error,
   }
 }
-
-export { OTP_RESEND_COOLDOWN_S }

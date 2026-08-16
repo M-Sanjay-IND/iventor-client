@@ -45,7 +45,7 @@ export function OtpForm({
     if (countdown <= 0) return
 
     const timer = setInterval(() => {
-      setCountdown((prev) => prev - 1)
+      setCountdown((prev: number) => prev - 1)
     }, 1000)
 
     return () => clearInterval(timer)
