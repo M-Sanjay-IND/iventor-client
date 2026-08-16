@@ -70,12 +70,18 @@ export function CounterPage() {
       setStep('otp')
       
       // Dispatch verification code email to borrower
-      void sendBorrowerOtpEmail(userEmail, res.otp)
+      const emailResult = await sendBorrowerOtpEmail(userEmail, res.otp)
 
-      console.log('[DEV MODE] Borrower OTP Code:', res.otp)
-      toast.info(`Verification code sent to ${userEmail}! (Dev code: ${res.otp})`, {
-        duration: 8000,
-      })
+      if (emailResult.success) {
+        toast.success(`Verification code sent to ${userEmail}! Please check your email inbox.`, {
+          duration: 6000,
+        })
+      } else {
+        toast.warning(`Email delivery note: ${emailResult.error || 'Check Resend domain setup'}. Local test code: ${res.otp}`, {
+          duration: 10000,
+        })
+      }
+      console.log('[BORROWER OTP CODE]:', res.otp)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to send OTP')
     }
@@ -109,12 +115,15 @@ export function CounterPage() {
     setSessionId(res.session_id)
     
     // Dispatch new verification code email
-    void sendBorrowerOtpEmail(email, res.otp)
-
-    console.log('[DEV MODE] Resent Borrower OTP Code:', res.otp)
-    toast.info(`New verification code sent! (Dev code: ${res.otp})`, {
-      duration: 8000,
-    })
+    const emailResult = await sendBorrowerOtpEmail(email, res.otp)
+    if (emailResult.success) {
+      toast.success('New verification code sent to your email!')
+    } else {
+      toast.warning(`Email delivery note: ${emailResult.error || 'Check Resend domain setup'}. Local test code: ${res.otp}`, {
+        duration: 10000,
+      })
+    }
+    console.log('[RESENT BORROWER OTP CODE]:', res.otp)
   }
 
   // Select action mode (borrow or return)

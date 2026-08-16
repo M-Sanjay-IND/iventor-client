@@ -25,10 +25,18 @@ export interface DueReminderParams {
   }[]
 }
 
+export interface EmailDispatchResult {
+  success: boolean
+  error?: string
+}
+
 /**
  * Sends borrower one-time password (OTP) verification email.
  */
-export async function sendBorrowerOtpEmail(borrowerEmail: string, otp: string) {
+export async function sendBorrowerOtpEmail(
+  borrowerEmail: string,
+  otp: string,
+): Promise<EmailDispatchResult> {
   const subject = `[${APP_NAME}] Your Counter Terminal Verification Code: ${otp}`
 
   const html = `
@@ -46,14 +54,32 @@ export async function sendBorrowerOtpEmail(borrowerEmail: string, otp: string) {
     </div>
   `
 
-  console.log(`[EMAIL DISPATCH] Sent Borrower OTP to ${borrowerEmail}: ${otp}`)
+  console.log(`[EMAIL DISPATCH] Dispatching Borrower OTP to ${borrowerEmail}: ${otp}`)
 
   try {
-    await supabase.functions.invoke('send-email', {
+    const { data, error } = await supabase.functions.invoke('send-email', {
       body: { to: borrowerEmail, subject, html },
     })
+
+    if (error) {
+      console.error('[EMAIL ERROR] Supabase Edge Function error:', error)
+      return { success: false, error: error.message }
+    }
+
+    if (data?.error) {
+      console.error('[EMAIL ERROR] Resend error payload:', data.error)
+      return {
+        success: false,
+        error: typeof data.error === 'string' ? data.error : data.error.message || 'Email delivery failed',
+      }
+    }
+
+    console.log('[EMAIL SUCCESS] Borrower OTP delivered:', data)
+    return { success: true }
   } catch (err) {
-    console.warn('[EMAIL WARNING] Supabase Edge Function send-email invoke skipped or unconfigured:', err)
+    const errMsg = err instanceof Error ? err.message : 'Failed to invoke email edge function'
+    console.error('[EMAIL EXCEPTION]', errMsg)
+    return { success: false, error: errMsg }
   }
 }
 
@@ -65,7 +91,7 @@ export async function sendBorrowReceiptEmail({
   items,
   dueDate,
   transactionId,
-}: BorrowEmailParams) {
+}: BorrowEmailParams): Promise<EmailDispatchResult> {
   const formattedDueDate = dueDate ? new Date(dueDate).toLocaleDateString() : 'No fixed due date'
   const subject = `[${APP_NAME}] Borrow Receipt - ${items.length} ${items.length === 1 ? 'Item' : 'Items'} Checked Out`
 
@@ -97,14 +123,23 @@ export async function sendBorrowReceiptEmail({
     </div>
   `
 
-  console.log(`[EMAIL DISPATCH] Sent Borrow Receipt to ${borrowerEmail}`, { subject, items, dueDate })
+  console.log(`[EMAIL DISPATCH] Dispatching Borrow Receipt to ${borrowerEmail}`)
 
   try {
-    await supabase.functions.invoke('send-email', {
+    const { error } = await supabase.functions.invoke('send-email', {
       body: { to: borrowerEmail, subject, html },
     })
+
+    if (error) {
+      console.error('[EMAIL ERROR] Borrow receipt failed:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true }
   } catch (err) {
-    console.warn('[EMAIL WARNING] Supabase Edge Function send-email invoke skipped or unconfigured:', err)
+    const errMsg = err instanceof Error ? err.message : 'Email failed'
+    console.warn('[EMAIL WARNING]', errMsg)
+    return { success: false, error: errMsg }
   }
 }
 
@@ -115,7 +150,7 @@ export async function sendReturnReceiptEmail({
   borrowerEmail,
   items,
   transactionId,
-}: ReturnEmailParams) {
+}: ReturnEmailParams): Promise<EmailDispatchResult> {
   const subject = `[${APP_NAME}] Return Confirmation - ${items.length} ${items.length === 1 ? 'Item' : 'Items'} Returned`
 
   const itemListHtml = items
@@ -145,21 +180,33 @@ export async function sendReturnReceiptEmail({
     </div>
   `
 
-  console.log(`[EMAIL DISPATCH] Sent Return Receipt to ${borrowerEmail}`, { subject, items })
+  console.log(`[EMAIL DISPATCH] Dispatching Return Receipt to ${borrowerEmail}`)
 
   try {
-    await supabase.functions.invoke('send-email', {
+    const { error } = await supabase.functions.invoke('send-email', {
       body: { to: borrowerEmail, subject, html },
     })
+
+    if (error) {
+      console.error('[EMAIL ERROR] Return receipt failed:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true }
   } catch (err) {
-    console.warn('[EMAIL WARNING] Supabase Edge Function send-email invoke skipped or unconfigured:', err)
+    const errMsg = err instanceof Error ? err.message : 'Email failed'
+    console.warn('[EMAIL WARNING]', errMsg)
+    return { success: false, error: errMsg }
   }
 }
 
 /**
  * Sends a reminder email for items due today or overdue.
  */
-export async function sendDueReminderEmail({ borrowerEmail, items }: DueReminderParams) {
+export async function sendDueReminderEmail({
+  borrowerEmail,
+  items,
+}: DueReminderParams): Promise<EmailDispatchResult> {
   const isOverdue = items.some((i) => (i.days_overdue ?? 0) > 0)
   const subject = isOverdue
     ? `[URGENT: ${APP_NAME}] Overdue Items Reminder`
@@ -192,13 +239,22 @@ export async function sendDueReminderEmail({ borrowerEmail, items }: DueReminder
     </div>
   `
 
-  console.log(`[EMAIL DISPATCH] Sent Due Reminder to ${borrowerEmail}`, { subject, items })
+  console.log(`[EMAIL DISPATCH] Dispatching Due Reminder to ${borrowerEmail}`)
 
   try {
-    await supabase.functions.invoke('send-email', {
+    const { error } = await supabase.functions.invoke('send-email', {
       body: { to: borrowerEmail, subject, html },
     })
+
+    if (error) {
+      console.error('[EMAIL ERROR] Due reminder failed:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true }
   } catch (err) {
-    console.warn('[EMAIL WARNING] Supabase Edge Function send-email invoke skipped or unconfigured:', err)
+    const errMsg = err instanceof Error ? err.message : 'Email failed'
+    console.warn('[EMAIL WARNING]', errMsg)
+    return { success: false, error: errMsg }
   }
 }
