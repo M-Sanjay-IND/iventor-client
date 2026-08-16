@@ -17,6 +17,7 @@ import {
 const borrowKeys = {
   terminal: () => ['terminal'] as const,
   terminalHistory: () => ['terminal', 'history'] as const,
+  activeLoans: (token?: string | null) => ['borrowerActiveLoans', token] as const,
 }
 
 // ============================================================================
@@ -95,6 +96,7 @@ export function useLookupQr() {
 // ============================================================================
 
 export function useBorrowItem() {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({
       sessionToken,
@@ -105,10 +107,17 @@ export function useBorrowItem() {
       copyId: string
       dueDays?: number
     }) => borrowCopy(sessionToken, copyId, dueDays),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['borrowerActiveLoans'] })
+      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      void queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
   })
 }
 
 export function useReturnItem() {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({
       sessionToken,
@@ -117,10 +126,17 @@ export function useReturnItem() {
       sessionToken: string
       copyId: string
     }) => returnCopy(sessionToken, copyId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['borrowerActiveLoans'] })
+      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      void queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
   })
 }
 
 export function useBulkBorrowItems() {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({
       sessionToken,
@@ -133,10 +149,17 @@ export function useBulkBorrowItems() {
       dueDays?: number
       qrUids?: string[]
     }) => bulkBorrowCopies(sessionToken, copyIds, dueDays, qrUids),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['borrowerActiveLoans'] })
+      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      void queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
   })
 }
 
 export function useBulkReturnItems() {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({
       sessionToken,
@@ -147,6 +170,12 @@ export function useBulkReturnItems() {
       copyIds?: string[]
       qrUids?: string[]
     }) => bulkReturnCopies(sessionToken, copyIds, qrUids),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['borrowerActiveLoans'] })
+      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      void queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
   })
 }
 
@@ -155,5 +184,8 @@ export function useBorrowerActiveLoans(sessionToken: string | null) {
     queryKey: ['borrowerActiveLoans', sessionToken],
     queryFn: () => getBorrowerActiveLoans(sessionToken!),
     enabled: Boolean(sessionToken),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: 'always',
   })
 }

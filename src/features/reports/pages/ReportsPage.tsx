@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   BarChart3,
   Download,
@@ -13,6 +13,9 @@ import {
   Mail,
   Send,
   Loader2,
+  Search,
+  Package,
+  MapPin,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -23,22 +26,28 @@ import {
 } from '../hooks/reports.queries'
 import { exportToCsv, exportToXlsx, printReport } from '../utils/export.utils'
 import { sendDueReminderEmail } from '@/services/email.service'
-import type { ReportTab } from '../types'
+import type { ReportTab, ValuationViewMode } from '../types'
 
 type DatePreset = 'all' | 'today' | '7days' | '30days' | 'this_month' | 'custom'
 
 export function ReportsPage() {
   const [activeTab, setActiveTab] = useState<ReportTab>('valuation')
+  const [valViewMode, setValViewMode] = useState<ValuationViewMode>('items')
   const [preset, setPreset] = useState<DatePreset>('all')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [searchFilter, setSearchFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
   const [sendingReminders, setSendingReminders] = useState(false)
 
   // Compute ISO filters
-  const dateFilter = {
-    startDate: startDate ? new Date(startDate).toISOString() : undefined,
-    endDate: endDate ? new Date(endDate + 'T23:59:59.999Z').toISOString() : undefined,
-  }
+  const dateFilter = useMemo(
+    () => ({
+      startDate: startDate ? new Date(startDate).toISOString() : undefined,
+      endDate: endDate ? new Date(endDate + 'T23:59:59.999Z').toISOString() : undefined,
+    }),
+    [startDate, endDate],
+  )
 
   const valuationQuery = useValuationReport(dateFilter)
   const borrowingQuery = useBorrowingReport(dateFilter.startDate, dateFilter.endDate)
@@ -73,6 +82,23 @@ export function ReportsPage() {
     }
   }
 
+  // Filter valuation items based on search and category
+  const filteredValuationItems = useMemo(() => {
+    const raw = valuationQuery.data?.items ?? []
+    return raw.filter((item) => {
+      const matchesCategory = !categoryFilter || item.category_name === categoryFilter
+      const q = searchFilter.toLowerCase().trim()
+      const matchesSearch =
+        !q ||
+        item.name.toLowerCase().includes(q) ||
+        (item.sku && item.sku.toLowerCase().includes(q)) ||
+        (item.brand && item.brand.toLowerCase().includes(q)) ||
+        (item.model && item.model.toLowerCase().includes(q)) ||
+        item.locations.some((l) => l.toLowerCase().includes(q))
+      return matchesCategory && matchesSearch
+    })
+  }, [valuationQuery.data?.items, categoryFilter, searchFilter])
+
   async function handleSendAllDueReminders() {
     const overdueItems = overdueQuery.data ?? []
     if (overdueItems.length === 0) {
@@ -82,7 +108,6 @@ export function ReportsPage() {
 
     setSendingReminders(true)
     try {
-      // Group by borrower email
       const borrowerMap = new Map<string, typeof overdueItems>()
       for (const item of overdueItems) {
         if (!borrowerMap.has(item.borrower_email)) {
@@ -119,18 +144,26 @@ export function ReportsPage() {
     const suffix = startDate && endDate ? `_${startDate}_to_${endDate}` : '_all_time'
 
     if (activeTab === 'valuation' && valuationQuery.data) {
-      const rows = valuationQuery.data.by_category.map((c) => ({
-        'Category Name': c.category_name,
-        'Item Count': c.item_count,
-        'Copy Count': c.copy_count,
-        'Total Valuation (INR)': c.total_value,
+      const rows = filteredValuationItems.map((item) => ({
+        'Item Name': item.name,
+        'Category': item.category_name,
+        'SKU': item.sku ?? '',
+        'Brand / Model': [item.brand, item.model].filter(Boolean).join(' ') || '',
+        'Unit Price (INR)': item.unit_value,
+        'Total Copies': item.total_copies,
+        'Available Copies': item.available_copies,
+        'Borrowed Copies': item.borrowed_copies,
+        'Lost / Damaged': item.lost_copies + item.damaged_copies,
+        'Total Valuation (INR)': item.total_valuation,
+        'Storage Locations': item.locations.join('; '),
       }))
-      exportToCsv(`inventory_valuation_report${suffix}.csv`, rows)
+      exportToCsv(`detailed_inventory_valuation_report${suffix}.csv`, rows)
     } else if (activeTab === 'borrowing' && borrowingQuery.data) {
       const rows = borrowingQuery.data.map((b) => ({
         'Type': b.type,
         'Item Name': b.item_name,
         'Category': b.category_name,
+        'SKU': b.sku ?? '',
         'Copy Number': b.copy_number,
         'Borrower Email': b.borrower_email,
         'Borrowed Date': b.borrowed_at ? new Date(b.borrowed_at).toLocaleDateString() : '',
@@ -142,6 +175,7 @@ export function ReportsPage() {
       const rows = overdueQuery.data.map((o) => ({
         'Item Name': o.item_name,
         'Category': o.category_name,
+        'SKU': o.sku ?? '',
         'Copy Number': o.copy_number,
         'Borrower Email': o.borrower_email,
         'Borrowed Date': new Date(o.borrowed_at).toLocaleDateString(),
@@ -153,6 +187,7 @@ export function ReportsPage() {
       const rows = lostDamagedQuery.data.map((l) => ({
         'Type': l.type,
         'Item Name': l.item_name,
+        'SKU': l.sku ?? '',
         'Copy Number': l.copy_number,
         'Date': new Date(l.date).toLocaleDateString(),
         'Unit Value (INR)': l.unit_value ?? '',
@@ -166,6 +201,19 @@ export function ReportsPage() {
     const suffix = startDate && endDate ? `_${startDate}_to_${endDate}` : '_all_time'
 
     if (activeTab === 'valuation' && valuationQuery.data) {
+      const itemRows = filteredValuationItems.map((item) => ({
+        'Item Name': item.name,
+        'Category': item.category_name,
+        'SKU': item.sku ?? '',
+        'Brand / Model': [item.brand, item.model].filter(Boolean).join(' ') || '',
+        'Unit Price (INR)': item.unit_value,
+        'Total Copies': item.total_copies,
+        'Available Copies': item.available_copies,
+        'Borrowed Copies': item.borrowed_copies,
+        'Lost / Damaged': item.lost_copies + item.damaged_copies,
+        'Total Valuation (INR)': item.total_valuation,
+        'Locations': item.locations.join('; '),
+      }))
       const categoryRows = valuationQuery.data.by_category.map((c) => ({
         'Category Name': c.category_name,
         'Item Count': c.item_count,
@@ -176,15 +224,17 @@ export function ReportsPage() {
         'Location Name': l.location_name,
         'Physical Copies Count': l.copy_count,
       }))
-      exportToXlsx(`inventory_valuation_report${suffix}.xlsx`, [
-        { name: 'Valuation by Category', data: categoryRows },
-        { name: 'Stock by Location', data: locationRows },
+      exportToXlsx(`comprehensive_inventory_report${suffix}.xlsx`, [
+        { name: 'Item-Level Inventory', data: itemRows },
+        { name: 'Category Valuation', data: categoryRows },
+        { name: 'Location Breakdown', data: locationRows },
       ])
     } else if (activeTab === 'borrowing' && borrowingQuery.data) {
       const rows = borrowingQuery.data.map((b) => ({
         'Type': b.type,
         'Item Name': b.item_name,
         'Category': b.category_name,
+        'SKU': b.sku ?? '',
         'Copy Number': b.copy_number,
         'Borrower Email': b.borrower_email,
         'Borrowed Date': b.borrowed_at ? new Date(b.borrowed_at).toLocaleDateString() : '',
@@ -196,6 +246,7 @@ export function ReportsPage() {
       const rows = overdueQuery.data.map((o) => ({
         'Item Name': o.item_name,
         'Category': o.category_name,
+        'SKU': o.sku ?? '',
         'Copy Number': o.copy_number,
         'Borrower Email': o.borrower_email,
         'Borrowed Date': new Date(o.borrowed_at).toLocaleDateString(),
@@ -207,6 +258,7 @@ export function ReportsPage() {
       const rows = lostDamagedQuery.data.map((l) => ({
         'Type': l.type,
         'Item Name': l.item_name,
+        'SKU': l.sku ?? '',
         'Copy Number': l.copy_number,
         'Date': new Date(l.date).toLocaleDateString(),
         'Unit Value (INR)': l.unit_value ?? '',
@@ -223,10 +275,10 @@ export function ReportsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
             <BarChart3 className="size-6 text-primary" />
-            Reports & Analytics Engine
+            Enterprise Reports & Analytics
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Custom date range reports for inventory valuation, borrowing volume, overdue tracking, and write-offs.
+            Granular item-level valuation, borrowing trends, overdue tracking, and write-offs.
           </p>
         </div>
 
@@ -244,7 +296,7 @@ export function ReportsPage() {
             className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-500/10 transition-colors shadow-sm"
           >
             <FileSpreadsheet className="size-3.5" />
-            Export XLSX
+            Export Multi-Sheet XLSX
           </button>
           <button
             onClick={printReport}
@@ -349,7 +401,7 @@ export function ReportsPage() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Main Tabs */}
       <div className="flex flex-wrap gap-2 border-b border-border pb-3">
         <button
           onClick={() => setActiveTab('valuation')}
@@ -359,7 +411,7 @@ export function ReportsPage() {
               : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
           }`}
         >
-          Inventory Valuation & Stock
+          Inventory Valuation & Stock (Item-Level)
         </button>
         <button
           onClick={() => setActiveTab('borrowing')}
@@ -398,7 +450,7 @@ export function ReportsPage() {
         </button>
       </div>
 
-      {/* TAB 1: Valuation & Stock */}
+      {/* TAB 1: Valuation & Stock (Granular Items + Category + Location views) */}
       {activeTab === 'valuation' && (
         <div className="space-y-6">
           {valuationQuery.isLoading ? (
@@ -449,37 +501,211 @@ export function ReportsPage() {
                 </div>
               </div>
 
-              {/* Breakdown by Category */}
-              <div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-3">
-                <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-                  <Layers className="size-4 text-primary" />
-                  Valuation Breakdown by Category
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="border-b border-border bg-muted/40 text-xs uppercase text-muted-foreground">
-                      <tr>
-                        <th className="px-4 py-2.5">Category Name</th>
-                        <th className="px-4 py-2.5">Item Count</th>
-                        <th className="px-4 py-2.5">Copy Count</th>
-                        <th className="px-4 py-2.5 text-right">Total Category Value</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {valuationQuery.data.by_category.map((cat) => (
-                        <tr key={cat.category_name} className="hover:bg-muted/20">
-                          <td className="px-4 py-2.5 font-medium text-foreground">{cat.category_name}</td>
-                          <td className="px-4 py-2.5">{cat.item_count}</td>
-                          <td className="px-4 py-2.5">{cat.copy_count}</td>
-                          <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                            ₹{cat.total_value.toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              {/* View Mode Switcher & Filter Toolbar */}
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+                <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-1">
+                  <button
+                    onClick={() => setValViewMode('items')}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                      valViewMode === 'items'
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Package className="size-3.5" />
+                    Detailed Item-by-Item Table ({filteredValuationItems.length})
+                  </button>
+                  <button
+                    onClick={() => setValViewMode('category')}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                      valViewMode === 'category'
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Layers className="size-3.5" />
+                    Category Summary ({valuationQuery.data.by_category.length})
+                  </button>
+                  <button
+                    onClick={() => setValViewMode('location')}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                      valViewMode === 'location'
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <MapPin className="size-3.5" />
+                    Location Summary ({valuationQuery.data.by_location.length})
+                  </button>
                 </div>
+
+                {valViewMode === 'items' && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        type="text"
+                        value={searchFilter}
+                        onChange={(e) => setSearchFilter(e.target.value)}
+                        placeholder="Search item, SKU, brand..."
+                        className="rounded-md border border-border bg-transparent py-1.5 pl-8 pr-3 text-xs placeholder:text-muted-foreground focus:border-primary"
+                      />
+                    </div>
+
+                    <select
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
+                      className="rounded-md border border-border bg-transparent px-2.5 py-1.5 text-xs text-foreground focus:border-primary"
+                    >
+                      <option value="">All Categories</option>
+                      {valuationQuery.data.by_category.map((c) => (
+                        <option key={c.category_name} value={c.category_name}>
+                          {c.category_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
+
+              {/* VIEW 1: Item-by-Item Detailed Table */}
+              {valViewMode === 'items' && (
+                <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="border-b border-border bg-muted/40 text-xs font-semibold uppercase text-muted-foreground">
+                        <tr>
+                          <th className="px-4 py-3">Item Name & SKU</th>
+                          <th className="px-4 py-3">Category</th>
+                          <th className="px-4 py-3">Brand / Model</th>
+                          <th className="px-4 py-3 text-right">Unit Price</th>
+                          <th className="px-4 py-3 text-center">Copies (Total / Avail / Out)</th>
+                          <th className="px-4 py-3">Storage Locations</th>
+                          <th className="px-4 py-3 text-right">Total Item Valuation</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {filteredValuationItems.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="p-8 text-center text-xs text-muted-foreground">
+                              No inventory items matched your filter criteria.
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredValuationItems.map((item) => (
+                            <tr key={item.id} className="hover:bg-muted/20 transition-colors">
+                              <td className="px-4 py-3">
+                                <p className="font-semibold text-foreground">{item.name}</p>
+                                {item.sku ? (
+                                  <span className="font-mono text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                    SKU: {item.sku}
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] text-muted-foreground/60">No SKU</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-xs text-foreground font-medium">
+                                {item.category_name}
+                              </td>
+                              <td className="px-4 py-3 text-xs text-muted-foreground">
+                                {[item.brand, item.model].filter(Boolean).join(' ') || '—'}
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono text-xs font-medium">
+                                ₹{item.unit_value.toLocaleString()}
+                              </td>
+                              <td className="px-4 py-3 text-center whitespace-nowrap">
+                                <span className="font-semibold text-foreground">{item.total_copies}</span>{' '}
+                                <span className="text-xs text-emerald-600 font-medium">
+                                  ({item.available_copies} avail
+                                </span>
+                                {item.borrowed_copies > 0 && (
+                                  <span className="text-xs text-blue-600 font-medium">
+                                    , {item.borrowed_copies} out
+                                  </span>
+                                )}
+                                {item.lost_copies + item.damaged_copies > 0 && (
+                                  <span className="text-xs text-red-600 font-medium">
+                                    , {item.lost_copies + item.damaged_copies} loss
+                                  </span>
+                                )}
+                                <span className="text-xs text-muted-foreground">)</span>
+                              </td>
+                              <td className="px-4 py-3 text-xs text-muted-foreground">
+                                {item.locations.length > 0 ? item.locations.join(', ') : '—'}
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono font-semibold text-foreground whitespace-nowrap">
+                                ₹{item.total_valuation.toLocaleString()}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* VIEW 2: Category Summary */}
+              {valViewMode === 'category' && (
+                <div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-3">
+                  <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+                    <Layers className="size-4 text-primary" />
+                    Valuation Breakdown by Category
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="border-b border-border bg-muted/40 text-xs uppercase text-muted-foreground">
+                        <tr>
+                          <th className="px-4 py-2.5">Category Name</th>
+                          <th className="px-4 py-2.5">Item Count</th>
+                          <th className="px-4 py-2.5">Copy Count</th>
+                          <th className="px-4 py-2.5 text-right">Total Category Value</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {valuationQuery.data.by_category.map((cat) => (
+                          <tr key={cat.category_name} className="hover:bg-muted/20">
+                            <td className="px-4 py-2.5 font-medium text-foreground">{cat.category_name}</td>
+                            <td className="px-4 py-2.5">{cat.item_count}</td>
+                            <td className="px-4 py-2.5">{cat.copy_count}</td>
+                            <td className="px-4 py-2.5 text-right font-mono font-semibold">
+                              ₹{cat.total_value.toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* VIEW 3: Location Summary */}
+              {valViewMode === 'location' && (
+                <div className="rounded-xl border border-border bg-card p-5 shadow-sm space-y-3">
+                  <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+                    <MapPin className="size-4 text-primary" />
+                    Inventory Physical Stock Breakdown by Location
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="border-b border-border bg-muted/40 text-xs uppercase text-muted-foreground">
+                        <tr>
+                          <th className="px-4 py-2.5">Location / Storage Rack</th>
+                          <th className="px-4 py-2.5 text-right">Physical Copies Count</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {valuationQuery.data.by_location.map((loc) => (
+                          <tr key={loc.location_name} className="hover:bg-muted/20">
+                            <td className="px-4 py-2.5 font-medium text-foreground">{loc.location_name}</td>
+                            <td className="px-4 py-2.5 text-right font-semibold">{loc.copy_count} units</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </>
           ) : null}
         </div>
@@ -518,7 +744,10 @@ export function ReportsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <p className="font-semibold text-foreground">{b.item_name}</p>
-                        <p className="text-xs text-muted-foreground">Copy #{b.copy_number} • {b.category_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Copy #{b.copy_number} • {b.category_name}
+                          {b.sku && ` • SKU: ${b.sku}`}
+                        </p>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-foreground">{b.borrower_email}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
@@ -601,7 +830,10 @@ export function ReportsPage() {
                     <tr key={o.transaction_id} className="hover:bg-red-500/5">
                       <td className="px-4 py-3">
                         <p className="font-semibold text-foreground">{o.item_name}</p>
-                        <p className="text-xs text-muted-foreground">Copy #{o.copy_number} • {o.category_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Copy #{o.copy_number} • {o.category_name}
+                          {o.sku && ` • SKU: ${o.sku}`}
+                        </p>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-foreground">{o.borrower_email}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
@@ -661,7 +893,10 @@ export function ReportsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <p className="font-semibold text-foreground">{l.item_name}</p>
-                        <p className="text-xs text-muted-foreground">Copy #{l.copy_number}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Copy #{l.copy_number}
+                          {l.sku && ` • SKU: ${l.sku}`}
+                        </p>
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
                         {new Date(l.date).toLocaleDateString()}

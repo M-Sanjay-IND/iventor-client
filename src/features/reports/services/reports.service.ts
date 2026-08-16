@@ -1,6 +1,7 @@
 import { supabase } from '@/services/supabase'
 import type {
   ValuationReportData,
+  ItemValuationReportItem,
   BorrowingActivityItem,
   OverdueLoanItem,
   LostDamagedReportItem,
@@ -16,13 +17,13 @@ export async function getValuationReport(filter: ReportDateFilter = {}): Promise
 
   let query = supabase
     .from('inventory_items')
-    .select('id, name, unit_value, created_at, category:categories(id, name), copies:inventory_copies(id, status, created_at, location:locations(name))')
+    .select('id, name, description, unit_value, sku, manufacturer, brand, model, created_at, category:categories(id, name), copies:inventory_copies(id, status, created_at, location:locations(name))')
     .is('deleted_at', null)
 
   if (startDate) query = query.gte('created_at', startDate)
   if (endDate) query = query.lte('created_at', endDate)
 
-  const { data: items, error: itemError } = await query
+  const { data: rawItems, error: itemError } = await query
   if (itemError) throw new Error(itemError.message)
 
   let totalItems = 0
@@ -33,10 +34,11 @@ export async function getValuationReport(filter: ReportDateFilter = {}): Promise
   let damagedCopies = 0
   let totalValue = 0
 
+  const itemsList: ItemValuationReportItem[] = []
   const categoryMap = new Map<string, { item_count: number; copy_count: number; total_value: number }>()
   const locationMap = new Map<string, number>()
 
-  for (const item of (items ?? [])) {
+  for (const item of (rawItems ?? [])) {
     totalItems++
     const itemUnitVal = Number(item.unit_value ?? 0)
     const cat = item.category as unknown as { name: string } | null
@@ -49,20 +51,58 @@ export async function getValuationReport(filter: ReportDateFilter = {}): Promise
     catStat.item_count++
 
     const copies = (item.copies ?? []) as unknown as { id: string; status: string; location: { name: string } | null }[]
+    let itemAvailable = 0
+    let itemBorrowed = 0
+    let itemLost = 0
+    let itemDamaged = 0
+    const locationSet = new Set<string>()
+
     for (const copy of copies) {
       totalCopies++
       totalValue += itemUnitVal
       catStat.copy_count++
       catStat.total_value += itemUnitVal
 
-      if (copy.status === 'available') availableCopies++
-      else if (copy.status === 'borrowed') borrowedCopies++
-      else if (copy.status === 'lost') lostCopies++
-      else if (copy.status === 'maintenance' || copy.status === 'damaged') damagedCopies++
+      if (copy.status === 'available') {
+        availableCopies++
+        itemAvailable++
+      } else if (copy.status === 'borrowed') {
+        borrowedCopies++
+        itemBorrowed++
+      } else if (copy.status === 'lost') {
+        lostCopies++
+        itemLost++
+      } else if (copy.status === 'maintenance' || copy.status === 'damaged') {
+        damagedCopies++
+        itemDamaged++
+      }
 
       const locName = copy.location?.name ?? 'No Location'
+      locationSet.add(locName)
       locationMap.set(locName, (locationMap.get(locName) ?? 0) + 1)
     }
+
+    const itemTotalCopies = copies.length
+    const itemTotalVal = itemUnitVal * itemTotalCopies
+
+    itemsList.push({
+      id: item.id,
+      name: item.name,
+      category_name: catName,
+      sku: item.sku ?? null,
+      manufacturer: item.manufacturer ?? null,
+      brand: item.brand ?? null,
+      model: item.model ?? null,
+      unit_value: itemUnitVal,
+      total_copies: itemTotalCopies,
+      available_copies: itemAvailable,
+      borrowed_copies: itemBorrowed,
+      lost_copies: itemLost,
+      damaged_copies: itemDamaged,
+      total_valuation: itemTotalVal,
+      locations: Array.from(locationSet),
+      created_at: item.created_at,
+    })
   }
 
   const byCategory = Array.from(categoryMap.entries()).map(([category_name, stats]) => ({
@@ -83,6 +123,7 @@ export async function getValuationReport(filter: ReportDateFilter = {}): Promise
     lost_copies: lostCopies,
     damaged_copies: damagedCopies,
     total_inventory_value: totalValue,
+    items: itemsList,
     by_category: byCategory,
     by_location: byLocation,
   }
@@ -94,7 +135,7 @@ export async function getBorrowingActivityReport(
 ): Promise<BorrowingActivityItem[]> {
   let query = supabase
     .from('transactions')
-    .select('id, type, borrower_email, borrowed_at, due_date, returned_at, copy:inventory_copies(copy_number, item:inventory_items(name, category:categories(name)))')
+    .select('id, type, borrower_email, borrowed_at, due_date, returned_at, copy:inventory_copies(copy_number, item:inventory_items(name, sku, category:categories(name)))')
     .in('type', ['borrow', 'return'])
     .order('created_at', { ascending: false })
     .limit(1000)
@@ -106,12 +147,13 @@ export async function getBorrowingActivityReport(
   if (error) throw new Error(error.message)
 
   return (data ?? []).map((t) => {
-    const copy = t.copy as unknown as { copy_number: number; item: { name: string; category: { name: string } | null } | null } | null
+    const copy = t.copy as unknown as { copy_number: number; item: { name: string; sku: string | null; category: { name: string } | null } | null } | null
     return {
       id: t.id,
       type: t.type,
       item_name: copy?.item?.name ?? 'Unknown Item',
       category_name: copy?.item?.category?.name ?? 'Uncategorized',
+      sku: copy?.item?.sku ?? null,
       copy_number: copy?.copy_number ?? 1,
       borrower_email: t.borrower_email,
       borrowed_at: t.borrowed_at,
@@ -127,7 +169,7 @@ export async function getOverdueLoansReport(filter: ReportDateFilter = {}): Prom
 
   let query = supabase
     .from('transactions')
-    .select('id, copy_id, borrower_email, borrowed_at, due_date, copy:inventory_copies(status, copy_number, item:inventory_items(name, category:categories(name)))')
+    .select('id, copy_id, borrower_email, borrowed_at, due_date, copy:inventory_copies(status, copy_number, item:inventory_items(name, sku, category:categories(name)))')
     .eq('type', 'borrow')
     .lt('due_date', nowIso)
     .is('returned_at', null)
@@ -147,7 +189,7 @@ export async function getOverdueLoansReport(filter: ReportDateFilter = {}): Prom
       return copy?.status === 'borrowed'
     })
     .map((t) => {
-      const copy = t.copy as unknown as { copy_number: number; item: { name: string; category: { name: string } | null } | null } | null
+      const copy = t.copy as unknown as { copy_number: number; item: { name: string; sku: string | null; category: { name: string } | null } | null } | null
       const dueDate = new Date(t.due_date!)
       const diffMs = now.getTime() - dueDate.getTime()
       const daysOverdue = Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
@@ -157,6 +199,7 @@ export async function getOverdueLoansReport(filter: ReportDateFilter = {}): Prom
         copy_id: t.copy_id,
         item_name: copy?.item?.name ?? 'Unknown Item',
         category_name: copy?.item?.category?.name ?? 'Uncategorized',
+        sku: copy?.item?.sku ?? null,
         copy_number: copy?.copy_number ?? 1,
         borrower_email: t.borrower_email,
         borrowed_at: t.borrowed_at!,
@@ -171,7 +214,7 @@ export async function getLostDamagedReport(filter: ReportDateFilter = {}): Promi
 
   let query = supabase
     .from('transactions')
-    .select('id, copy_id, type, notes, created_at, copy:inventory_copies(copy_number, item:inventory_items(name, unit_value))')
+    .select('id, copy_id, type, notes, created_at, copy:inventory_copies(copy_number, item:inventory_items(name, sku, unit_value))')
     .in('type', ['lost', 'damaged'])
     .order('created_at', { ascending: false })
 
@@ -182,11 +225,12 @@ export async function getLostDamagedReport(filter: ReportDateFilter = {}): Promi
   if (error) throw new Error(error.message)
 
   return (data ?? []).map((t) => {
-    const copy = t.copy as unknown as { copy_number: number; item: { name: string; unit_value: number | null } | null } | null
+    const copy = t.copy as unknown as { copy_number: number; item: { name: string; sku: string | null; unit_value: number | null } | null } | null
     return {
       transaction_id: t.id,
       copy_id: t.copy_id,
       item_name: copy?.item?.name ?? 'Unknown Item',
+      sku: copy?.item?.sku ?? null,
       copy_number: copy?.copy_number ?? 1,
       type: t.type as 'lost' | 'damaged',
       notes: t.notes,

@@ -1,3 +1,22 @@
+export interface ItemValuationReportItem {
+  id: string
+  name: string
+  category_name: string
+  sku: string | null
+  manufacturer: string | null
+  brand: string | null
+  model: string | null
+  unit_value: number
+  total_copies: number
+  available_copies: number
+  borrowed_copies: number
+  lost_copies: number
+  damaged_copies: number
+  total_valuation: number
+  locations: string[]
+  created_at: string
+}
+
 export interface ValuationCategoryBreakdown {
   category_name: string
   item_count: number
@@ -18,6 +37,7 @@ export interface ValuationReportData {
   lost_copies: number
   damaged_copies: number
   total_inventory_value: number
+  items: ItemValuationReportItem[]
   by_category: ValuationCategoryBreakdown[]
   by_location: ValuationLocationBreakdown[]
 }
@@ -27,6 +47,7 @@ export interface BorrowingActivityItem {
   type: string
   item_name: string
   category_name: string
+  sku: string | null
   copy_number: number
   borrower_email: string
   borrowed_at: string | null
@@ -39,6 +60,7 @@ export interface OverdueLoanItem {
   copy_id: string
   item_name: string
   category_name: string
+  sku: string | null
   copy_number: number
   borrower_email: string
   borrowed_at: string
@@ -50,6 +72,7 @@ export interface LostDamagedReportItem {
   transaction_id: string
   copy_id: string
   item_name: string
+  sku: string | null
   copy_number: number
   type: 'lost' | 'damaged'
   notes: string | null
@@ -58,3 +81,4 @@ export interface LostDamagedReportItem {
 }
 
 export type ReportTab = 'valuation' | 'borrowing' | 'overdue' | 'lost_damaged'
+export type ValuationViewMode = 'items' | 'category' | 'location'

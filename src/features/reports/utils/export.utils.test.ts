@@ -1,10 +1,15 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { exportToCsv, exportToXlsx } from './export.utils'
 
 describe('Reports Export Utilities', () => {
   beforeEach(() => {
-    window.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-url')
-    window.URL.revokeObjectURL = vi.fn()
+    if (typeof window !== 'undefined') {
+      window.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-url')
+      window.URL.revokeObjectURL = vi.fn()
+    }
   })
 
   it('should export rows to CSV without throwing in browser/jsdom', () => {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   useActiveTerminal,
@@ -179,6 +180,8 @@ export function CounterPage() {
     return <TerminalClosed />
   }
 
+  const queryClient = useQueryClient()
+
   const showTimer = ['mode', 'scanner', 'receipt'].includes(step)
 
   return (
@@ -225,7 +228,12 @@ export function CounterPage() {
         <TransactionReceipt
           transactions={completedTransactions}
           items={completedItems}
-          onScanAnother={() => setStep('mode')}
+          onScanAnother={() => {
+            void queryClient.invalidateQueries({ queryKey: ['borrowerActiveLoans'] })
+            setCompletedTransactions([])
+            setCompletedItems([])
+            setStep('mode')
+          }}
           onEndSession={handleEndSession}
         />
       )}
