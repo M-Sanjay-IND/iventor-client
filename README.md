@@ -7,20 +7,22 @@
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E.svg?style=flat&logo=supabase)](https://supabase.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **Inventor Client** is a domain-agnostic, enterprise-grade cloud inventory and asset lifecycle management platform. Engineered for universities, enterprise research labs, healthcare systems, high-throughput warehouses, and hardware engineering facilities.
+> **Inventor Client** is a domain-agnostic, enterprise-grade cloud inventory and asset lifecycle management platform designed with a **Minimal Skeuomorphic Monochrome** design language. Engineered for universities, enterprise research labs, healthcare systems, high-throughput warehouses, and hardware engineering facilities.
 
 ---
 
 ## 📑 Table of Contents
 
 - [System Architecture](#-system-architecture)
+- [Design Philosophy & UI/UX System](#-design-philosophy--uiux-system)
 - [Key Capabilities](#-key-capabilities)
   - [1. Dual Interface Topology](#1-dual-interface-topology)
-  - [2. Shared Item QR & Physical Copy Auto-Resolution](#2-shared-item-qr--physical-copy-auto-resolution)
-  - [3. Single-Sheet Unified Bulk Onboarding](#3-single-sheet-unified-bulk-onboarding)
-  - [4. Transaction Lifecycle & Admin Overrides](#4-transaction-lifecycle--admin-overrides)
-  - [5. Reporting & Analytics Engine with Custom Date Ranges](#5-reporting--analytics-engine-with-custom-date-ranges)
-  - [6. Digital Receipts & Automated Due Date Reminders](#6-digital-receipts--automated-due-date-reminders)
+  - [2. Minimal Skeuomorphic Command Dashboard](#2-minimal-skeuomorphic-command-dashboard)
+  - [3. Shared Item QR & Physical Copy Auto-Resolution](#3-shared-item-qr--physical-copy-auto-resolution)
+  - [4. Single-Sheet Unified Bulk Onboarding](#4-single-sheet-unified-bulk-onboarding)
+  - [5. Transaction Lifecycle & Admin Overrides](#5-transaction-lifecycle--admin-overrides)
+  - [6. Reporting & Analytics Engine with Custom Date Ranges](#6-reporting--analytics-engine-with-custom-date-ranges)
+  - [7. Digital Receipts & Automated Due Date Reminders](#7-digital-receipts--automated-due-date-reminders)
 - [Tech Stack](#-tech-stack)
 - [Database Schema & Entity Relationships](#-database-schema--entity-relationships)
 - [Security & Row-Level Security (RLS)](#-security--row-level-security-rls)
@@ -42,6 +44,7 @@ graph TD
         AdminApp["Admin Command Center (/admin)"]
         CounterTerminal["Dedicated Counter Terminal (/counter)"]
         ScannerEngine["QR Scanner & Cart Engine"]
+        SkeuoDesignSystem["Minimal Skeuomorphic Monochrome Theme System"]
     end
 
     subgraph Security & RLS Layer
@@ -66,35 +69,52 @@ graph TD
 
 ---
 
+## 🎨 Design Philosophy & UI/UX System
+
+Inventor Client employs a **Minimal Skeuomorphic Monochrome** design philosophy that pairs the clarity of Swiss graphic design and stark black-and-white palettes with the tactile satisfaction of physical hardware controls:
+
+* **Tactile Surfaces (`.skeuo-card`)**: Multi-layered soft drop shadows coupled with a subtle 1px specular top highlight border (`inset 0 1px 0 rgba(255,255,255,...)`) replicating physical raised plates.
+* **Recessed Etched Wells (`.skeuo-well`, `.skeuo-input`)**: Debossed inset shadows for text inputs, telemetry modules, and data grids giving a precision-machined instrument aesthetic.
+* **Physical Hardware Controls (`.skeuo-button-primary`, `.skeuo-pill`, `.skeuo-led`)**: Extruded button bevels with active click depression (`translate-y-[1px]`), physical sliding slider switches for theme toggling, and pulsing LED status nodes.
+* **High-Contrast Monochrome Palette**: High readability dark mode (obsidian/charcoal with crisp white typography and subtle ambient lighting) and light mode (chalk/paper white with deep ink contrast).
+
+---
+
 ## 🌟 Key Capabilities
 
 ### 1. Dual Interface Topology
 * **Admin Command Center (`/admin`)**: Multi-category inventory management, batch QR generation, sticker sheet printing layouts, transaction override ledgers, custom date range financial valuation reports, and audit tracking.
 * **Counter Terminal (`/counter`)**: High-speed, touch-optimized kiosk designed for lab desks. Borrowers authenticate via transient 6-digit email OTPs without creating permanent user accounts.
 
-### 2. Shared Item QR & Physical Copy Auto-Resolution
+### 2. Minimal Skeuomorphic Command Dashboard
+* **Live Telemetry Bar**: Real-time infrastructure status badge with pulsing LED indicator and quick terminal launch trigger.
+* **Metric Dials (4-Card Matrix)**: Total asset valuation, active borrowed loans, delinquent overdue alerts, and live stock availability percentage with grooved progress tracks.
+* **Quick Operations Dock**: Tactile fast-action tiles for adding SKUs, bulk importing spreadsheets, printing sticker sheets, and auditing reports.
+* **Stream Ledger & System Node Deck**: Two-column responsive command hub featuring segmented transaction filters (All / Borrows / Returns) and database/storage infrastructure node telemetry.
+
+### 3. Shared Item QR & Physical Copy Auto-Resolution
 * Supports both **Physical Copy QR Codes** (1 unique code per physical asset) and **Shared Item-Level QR Codes** (1 shared code per product category/bin).
 * When a shared Item QR is scanned:
   * **Borrow Mode**: Auto-picks the earliest available physical copy (`copy_number ASC`) and reserves it.
   * **Return Mode**: Read-only borrower active loans checklist with live scan validation; auto-resolves the active borrowed copy and marks it returned.
 
-### 3. Single-Sheet Unified Bulk Onboarding
+### 4. Single-Sheet Unified Bulk Onboarding
 * Import entire facility inventories from a **single `.xlsx` or `.csv` spreadsheet**.
 * Automatically detects and creates missing Catalog Items, Categories, Locations/Racks, generates physical copy quantities, and generates vector QR codes in a single operation.
 
-### 4. Transaction Lifecycle & Admin Overrides
+### 5. Transaction Lifecycle & Admin Overrides
 * Immutable transaction ledger tracking `borrow`, `return`, `lost`, and `damaged` states.
 * Real-time overdue loan tracking calculating days past return window.
 * Full administrative override capabilities: **Force Return**, **Mark as Lost**, and **Mark as Damaged** with audit reason logging.
 
-### 5. Reporting & Analytics Engine with Custom Date Ranges
+### 6. Reporting & Analytics Engine with Custom Date Ranges
 * **Inventory Valuation & Stock Summary**: Real-time asset valuation by category and storage location.
 * **Borrowing Volume Activity**: Borrow and return trends across arbitrary date windows.
 * **Overdue Tracking**: Live overdue loan ledger with borrower contact details and days overdue.
 * **Loss & Damage Write-Offs**: Financial impact audit of decommissioned or damaged assets.
 * **Multi-Format Export**: 1-click export to CSV, multi-sheet formatted Excel (`.xlsx`), and clean print/PDF layouts.
 
-### 6. Digital Receipts & Automated Due Date Reminders
+### 7. Digital Receipts & Automated Due Date Reminders
 * Instant digital receipt emails sent on every borrow and return transaction.
 * Automated due date reminder engine notifying borrowers of upcoming or overdue items.
 
@@ -106,7 +126,7 @@ graph TD
 | :--- | :--- | :--- |
 | **Framework** | [React 19](https://react.dev/) + [TypeScript 5.8](https://www.typescriptlang.org/) | Strict type-safety, zero-runtime overhead |
 | **Build Tool** | [Vite 6](https://vitejs.dev/) | Sub-second HMR & optimized ESM bundling |
-| **Styling** | [Tailwind CSS v4](https://tailwindcss.com/) | Modern design tokens, glassmorphism, responsive UI |
+| **Styling** | [Tailwind CSS v4](https://tailwindcss.com/) + Custom Skeuomorphic System | Monochrome tokens, tactile bevels, physical depth |
 | **State & Cache** | [TanStack React Query v5](https://tanstack.com/query/latest) | Optimistic mutations, background auto-polling |
 | **Database & Auth** | [Supabase PostgreSQL](https://supabase.com/) | RLS, RPC functions, transient OTP auth, Storage |
 | **Spreadsheets** | [SheetJS (xlsx)](https://docs.sheetjs.com/) | Parsing and generating Excel `.xlsx` / `.csv` |

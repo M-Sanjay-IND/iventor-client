@@ -9,6 +9,8 @@ import { BulkImportModal } from '../components/BulkImportModal'
 import { BulkItemImportModal } from '../components/BulkItemImportModal'
 import { UnifiedBulkImportModal } from '../components/UnifiedBulkImportModal'
 import { DEFAULT_PAGE_SIZE } from '@/constants'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import type { InventoryItemWithCategory } from '../types'
 
 export function InventoryPage() {
@@ -37,65 +39,55 @@ export function InventoryPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/80 pb-5">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Inventory
+          <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+            Inventory Catalog
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage items and physical copies.
+          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+            Manage physical SKUs, individual serialized copies, and rack locations.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => setUnifiedImportOpen(true)}
-            className="flex items-center gap-1.5 rounded-md border border-primary bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+            className="gap-1.5 text-xs"
           >
-            <UploadCloud className="size-4" />
-            Bulk Import (Single XLSX)
-          </button>
-          <button
+            <UploadCloud className="size-3.5" />
+            Bulk Import (XLSX)
+          </Button>
+          <Button
             type="button"
-            onClick={() => setBulkItemImportOpen(true)}
-            className="flex items-center gap-1.5 rounded-md border border-border bg-transparent px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-          >
-            Import Items Only
-          </button>
-          <button
-            type="button"
-            onClick={() => setBulkImportOpen(true)}
-            className="flex items-center gap-1.5 rounded-md border border-border bg-transparent px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-          >
-            Import Copies Only
-          </button>
-          <button
-            type="button"
+            variant="default"
+            size="sm"
             onClick={() => navigate('/admin/inventory/new')}
-            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="gap-1.5 text-xs"
           >
-            <Plus className="size-4" />
+            <Plus className="size-3.5" />
             Add Item
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3">
         {/* Search */}
         <div className="relative flex-1 sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
+          <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
             type="text"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value)
               setPage(1)
             }}
-            className="w-full rounded-md border border-border bg-transparent py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            placeholder="Search items…"
+            className="pl-8 text-xs"
+            placeholder="Search items by name, SKU..."
           />
         </div>
 
@@ -106,7 +98,7 @@ export function InventoryPage() {
             setCategoryFilter(e.target.value)
             setPage(1)
           }}
-          className="rounded-md border border-border bg-transparent px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          className="skeuo-input h-9 rounded-lg bg-background px-3 text-xs text-foreground cursor-pointer"
         >
           <option value="">All categories</option>
           {categories.map((cat) => (
@@ -117,22 +109,28 @@ export function InventoryPage() {
         </select>
 
         {/* Management buttons */}
-        <button
-          type="button"
-          onClick={() => setCategoryManagerOpen(true)}
-          className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <FolderTree className="size-3.5" />
-          Categories
-        </button>
-        <button
-          type="button"
-          onClick={() => setLocationManagerOpen(true)}
-          className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <MapPin className="size-3.5" />
-          Locations
-        </button>
+        <div className="flex items-center gap-2 ml-auto">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setCategoryManagerOpen(true)}
+            className="gap-1.5 text-xs"
+          >
+            <FolderTree className="size-3.5" />
+            Categories
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setLocationManagerOpen(true)}
+            className="gap-1.5 text-xs"
+          >
+            <MapPin className="size-3.5" />
+            Locations
+          </Button>
+        </div>
       </div>
 
       {/* Table */}

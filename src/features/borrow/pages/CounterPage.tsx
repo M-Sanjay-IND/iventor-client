@@ -27,6 +27,7 @@ import {
 type FlowStep = 'email' | 'otp' | 'mode' | 'scanner' | 'receipt'
 
 export function CounterPage() {
+  const queryClient = useQueryClient()
   const { data: terminalSession, isLoading: terminalLoading } = useActiveTerminal()
 
   const [step, setStep] = useState<FlowStep>('email')
@@ -200,8 +201,6 @@ export function CounterPage() {
   if (!terminalSession) {
     return <TerminalClosed />
   }
-
-  const queryClient = useQueryClient()
 
   const showTimer = ['mode', 'scanner', 'receipt'].includes(step)
 

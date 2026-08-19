@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ExternalLink, Monitor, Play, Square, Loader2, Clock } from 'lucide-react'
+import { ExternalLink, Monitor, Play, Square, Loader2, Clock, Settings } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   useActiveTerminal,
@@ -8,6 +8,9 @@ import {
   useTerminalHistory,
   type TerminalSession,
 } from '@/features/borrow'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card } from '@/components/ui/card'
 
 export function SettingsPage() {
   const [notes, setNotes] = useState('')
@@ -39,41 +42,46 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Settings & Controls
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage system configuration and counter terminal state.
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="border-b border-border/80 pb-5">
+        <div className="flex items-center gap-2">
+          <Settings className="size-5 text-foreground" />
+          <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+            Settings & Controls
+          </h1>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+          Manage system configuration, security policies, and counter terminal state.
         </p>
       </div>
 
       {/* Counter Terminal Controls Card */}
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-6">
-        <div className="flex items-center justify-between border-b border-border/50 pb-4">
+      <Card className="p-6 space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/80 pb-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground skeuo-button-primary">
               <Monitor className="size-5" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-foreground">
-                Counter Terminal Control
+              <h2 className="text-base font-semibold text-foreground">
+                Counter Terminal Gatekeeper
               </h2>
               <p className="text-xs text-muted-foreground">
-                Open or close borrower checkout counter sessions
+                Authorize or lock borrower checkout and return sessions
               </p>
             </div>
           </div>
 
-          <a
-            href="/counter"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open('/counter', '_blank')}
+            className="gap-1.5 text-xs"
           >
-            Launch Terminal <ExternalLink className="size-3.5" />
-          </a>
+            <span>Launch Terminal</span>
+            <ExternalLink className="size-3" />
+          </Button>
         </div>
 
         {loadingTerminal ? (
@@ -83,67 +91,59 @@ export function SettingsPage() {
         ) : (
           <div className="space-y-4">
             {/* Status Indicator */}
-            <div className="flex items-center justify-between rounded-lg border border-border p-4 bg-muted/20">
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-muted/30 p-4 skeuo-well">
               <div className="flex items-center gap-3">
                 <span
-                  className={`relative flex h-3.5 w-3.5 rounded-full ${
-                    activeTerminal ? 'bg-emerald-500' : 'bg-red-500'
+                  className={`size-3 rounded-full ${
+                    activeTerminal ? 'bg-emerald-500 skeuo-led' : 'bg-muted-foreground'
                   }`}
-                >
-                  {activeTerminal && (
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  )}
-                </span>
+                />
                 <div>
-                  <p className="text-sm font-semibold text-foreground">
+                  <p className="text-xs font-semibold text-foreground">
                     Terminal Status:{' '}
-                    <span className={activeTerminal ? 'text-emerald-500' : 'text-red-500'}>
-                      {activeTerminal ? 'OPEN' : 'CLOSED'}
+                    <span className={activeTerminal ? 'font-mono text-emerald-500' : 'text-muted-foreground'}>
+                      {activeTerminal ? 'OPEN & ACCEPTING SCANS' : 'CLOSED / LOCKED'}
                     </span>
                   </p>
                   {activeTerminal && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Opened on {new Date(activeTerminal.opened_at).toLocaleString()}
+                    <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                      Session initiated: {new Date(activeTerminal.opened_at).toLocaleString()}
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* Toggle Buttons */}
+              {/* Action Buttons */}
               {activeTerminal ? (
-                <button
+                <Button
+                  variant="destructive"
+                  size="sm"
                   onClick={() => void handleClose()}
-                  disabled={closeMutation.isPending}
-                  className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+                  isLoading={closeMutation.isPending}
+                  className="gap-2 text-xs"
                 >
-                  {closeMutation.isPending ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Square className="size-4" />
-                  )}
+                  <Square className="size-3.5" />
                   Close Terminal
-                </button>
+                </Button>
               ) : (
-                <div className="flex items-center gap-3">
-                  <input
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <Input
                     type="text"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Optional session notes..."
-                    className="h-9 rounded-lg border border-border bg-background px-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                    placeholder="Session notes (e.g. Morning Shift)..."
+                    className="h-8 text-xs w-60"
                   />
-                  <button
+                  <Button
+                    variant="default"
+                    size="sm"
                     onClick={() => void handleOpen()}
-                    disabled={openMutation.isPending}
-                    className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                    isLoading={openMutation.isPending}
+                    className="gap-2 text-xs"
                   >
-                    {openMutation.isPending ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Play className="size-4" />
-                    )}
+                    <Play className="size-3.5" />
                     Open Terminal
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -151,17 +151,17 @@ export function SettingsPage() {
         )}
 
         {/* History Table */}
-        <div className="pt-2">
-          <div className="flex items-center gap-2 mb-3">
-            <Clock className="size-4 text-muted-foreground" />
-            <h3 className="text-sm font-semibold text-foreground">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Clock className="size-3.5 text-muted-foreground" />
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Recent Terminal Sessions
             </h3>
           </div>
 
-          <div className="rounded-lg border border-border overflow-hidden">
+          <div className="overflow-x-auto rounded-xl border border-border bg-card skeuo-card">
             <table className="w-full text-left text-xs">
-              <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wider border-b border-border">
+              <thead className="bg-muted/50 text-muted-foreground uppercase tracking-wider border-b border-border text-[11px]">
                 <tr>
                   <th className="p-3 font-semibold">Status</th>
                   <th className="p-3 font-semibold">Opened At</th>
@@ -169,29 +169,29 @@ export function SettingsPage() {
                   <th className="p-3 font-semibold">Notes</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border text-foreground">
+              <tbody className="divide-y divide-border/60 text-foreground">
                 {history.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                    <td colSpan={4} className="p-8 text-center text-muted-foreground text-xs">
                       No terminal history recorded yet.
                     </td>
                   </tr>
                 ) : (
                   history.slice(0, 5).map((session: TerminalSession) => (
-                    <tr key={session.id} className="hover:bg-muted/30">
+                    <tr key={session.id} className="hover:bg-muted/30 transition-colors">
                       <td className="p-3">
                         <span
-                          className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-semibold border ${
                             !session.closed_at
-                              ? 'bg-emerald-500/10 text-emerald-500'
-                              : 'bg-muted text-muted-foreground'
+                              ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                              : 'bg-muted text-muted-foreground border-border'
                           }`}
                         >
                           {!session.closed_at ? 'Active' : 'Closed'}
                         </span>
                       </td>
-                      <td className="p-3">{new Date(session.opened_at).toLocaleString()}</td>
-                      <td className="p-3">
+                      <td className="p-3 font-mono">{new Date(session.opened_at).toLocaleString()}</td>
+                      <td className="p-3 font-mono">
                         {session.closed_at
                           ? new Date(session.closed_at).toLocaleString()
                           : '—'}
@@ -204,7 +204,7 @@ export function SettingsPage() {
             </table>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   )
 }

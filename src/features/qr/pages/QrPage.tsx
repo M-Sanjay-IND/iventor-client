@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Printer } from 'lucide-react'
+import { Plus, Search, Printer, QrCode } from 'lucide-react'
 import { useQrCodes } from '../hooks/qr.queries'
 import { QrCodesTable } from '../components/QrCodesTable'
 import { BulkGenerateModal } from '../components/BulkGenerateModal'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import type { QrCodeWithRelations } from '../types'
 
 export function QrPage() {
@@ -30,56 +32,63 @@ export function QrPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/80 pb-5">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            QR Codes
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Generate and manage permanent QR identities.
+          <div className="flex items-center gap-2">
+            <QrCode className="size-5 text-foreground" />
+            <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+              QR Code Registry
+            </h1>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+            Generate, serialize, and manage physical asset identity barcodes.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           {selectedIds.length > 0 && (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={handlePrintSelected}
-              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted"
+              className="gap-1.5 text-xs"
             >
-              <Printer className="size-4" />
+              <Printer className="size-3.5" />
               Print ({selectedIds.length})
-            </button>
+            </Button>
           )}
-          <button
+          <Button
             type="button"
+            variant="default"
+            size="sm"
             onClick={() => setBulkModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="gap-1.5 text-xs"
           >
-            <Plus className="size-4" />
-            Generate
-          </button>
+            <Plus className="size-3.5" />
+            Generate QR Set
+          </Button>
         </div>
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
+          <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
             type="text"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value)
               setPage(1)
             }}
-            className="w-full rounded-md border border-border bg-transparent py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            placeholder="Search by QR UID…"
+            className="pl-8 text-xs"
+            placeholder="Search by QR UID (e.g. INV-000000001)..."
           />
         </div>
 
-        <label className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
+        <label className="skeuo-pill flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground cursor-pointer select-none">
           <input
             type="checkbox"
             checked={activeOnly}
@@ -87,7 +96,7 @@ export function QrPage() {
               setActiveOnly(e.target.checked)
               setPage(1)
             }}
-            className="size-4 rounded accent-primary"
+            className="size-3.5 rounded accent-foreground cursor-pointer"
           />
           Active only
         </label>

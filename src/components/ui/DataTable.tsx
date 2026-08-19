@@ -64,16 +64,16 @@ export function DataTable<TData>({
 
   return (
     <div className="space-y-3">
-      {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-border">
+      {/* Table Container */}
+      <div className="overflow-x-auto rounded-xl border border-border bg-card skeuo-card">
         <table className="w-full text-sm">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b border-border bg-muted/40">
+              <tr key={headerGroup.id} className="border-b border-border bg-muted/50">
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground"
+                    className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground select-none"
                     style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}
                   >
                     {header.isPlaceholder
@@ -84,13 +84,13 @@ export function DataTable<TData>({
               </tr>
             ))}
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border/60">
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i} className="border-b border-border">
+                <tr key={i} className="border-b border-border/40">
                   {columns.map((_, j) => (
-                    <td key={j} className="px-4 py-3">
-                      <div className="h-4 w-full animate-pulse rounded bg-muted" />
+                    <td key={j} className="px-4 py-3.5">
+                      <div className="h-4 w-full animate-pulse rounded bg-muted/70" />
                     </td>
                   ))}
                 </tr>
@@ -99,7 +99,7 @@ export function DataTable<TData>({
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="px-4 py-12 text-center text-sm text-muted-foreground"
+                  className="px-4 py-14 text-center text-sm text-muted-foreground"
                 >
                   {emptyMessage}
                 </td>
@@ -108,13 +108,13 @@ export function DataTable<TData>({
               table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
-                  className={`border-b border-border transition-colors hover:bg-muted/30 ${
+                  className={`transition-colors hover:bg-muted/40 ${
                     onRowClick ? 'cursor-pointer' : ''
-                  } ${row.getIsSelected() ? 'bg-primary/5' : ''}`}
+                  } ${row.getIsSelected() ? 'bg-primary/5 font-medium' : ''}`}
                   onClick={() => onRowClick?.(row.original)}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3">
+                    <td key={cell.id} className="px-4 py-3 text-foreground">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
@@ -127,7 +127,7 @@ export function DataTable<TData>({
 
       {/* Pagination */}
       {total > 0 && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground px-1">
           <div className="flex items-center gap-2">
             <span>Rows per page</span>
             <select
@@ -136,7 +136,7 @@ export function DataTable<TData>({
                 onPageSizeChange?.(Number(e.target.value))
                 onPageChange?.(1)
               }}
-              className="rounded border border-border bg-transparent px-2 py-1 text-sm"
+              className="skeuo-input rounded-md bg-background px-2.5 py-1 text-xs text-foreground cursor-pointer"
             >
               {PAGE_SIZE_OPTIONS.map((size) => (
                 <option key={size} value={size}>
@@ -146,8 +146,8 @@ export function DataTable<TData>({
             </select>
           </div>
 
-          <div className="flex items-center gap-1">
-            <span className="mr-2">
+          <div className="flex items-center gap-1.5">
+            <span className="mr-2 font-mono text-xs">
               {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
             </span>
 
@@ -155,37 +155,37 @@ export function DataTable<TData>({
               type="button"
               onClick={() => onPageChange?.(1)}
               disabled={page <= 1}
-              className="rounded p-1 transition-colors hover:bg-muted disabled:opacity-30"
+              className="skeuo-button-secondary rounded-lg p-1.5 transition-all disabled:opacity-30 disabled:pointer-events-none"
               aria-label="First page"
             >
-              <ChevronsLeft className="size-4" />
+              <ChevronsLeft className="size-3.5" />
             </button>
             <button
               type="button"
               onClick={() => onPageChange?.(page - 1)}
               disabled={page <= 1}
-              className="rounded p-1 transition-colors hover:bg-muted disabled:opacity-30"
+              className="skeuo-button-secondary rounded-lg p-1.5 transition-all disabled:opacity-30 disabled:pointer-events-none"
               aria-label="Previous page"
             >
-              <ChevronLeft className="size-4" />
+              <ChevronLeft className="size-3.5" />
             </button>
             <button
               type="button"
               onClick={() => onPageChange?.(page + 1)}
               disabled={page >= totalPages}
-              className="rounded p-1 transition-colors hover:bg-muted disabled:opacity-30"
+              className="skeuo-button-secondary rounded-lg p-1.5 transition-all disabled:opacity-30 disabled:pointer-events-none"
               aria-label="Next page"
             >
-              <ChevronRight className="size-4" />
+              <ChevronRight className="size-3.5" />
             </button>
             <button
               type="button"
               onClick={() => onPageChange?.(totalPages)}
               disabled={page >= totalPages}
-              className="rounded p-1 transition-colors hover:bg-muted disabled:opacity-30"
+              className="skeuo-button-secondary rounded-lg p-1.5 transition-all disabled:opacity-30 disabled:pointer-events-none"
               aria-label="Last page"
             >
-              <ChevronsRight className="size-4" />
+              <ChevronsRight className="size-3.5" />
             </button>
           </div>
         </div>

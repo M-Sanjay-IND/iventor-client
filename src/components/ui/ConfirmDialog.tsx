@@ -1,4 +1,5 @@
 import { Modal } from './Modal'
+import { Button } from './button'
 
 interface ConfirmDialogProps {
   open: boolean
@@ -21,23 +22,25 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <Modal open={open} onClose={onClose} title={title} maxWidth="max-w-sm">
-      <p className="text-sm text-muted-foreground">{message}</p>
-      <div className="mt-5 flex justify-end gap-2">
-        <button
+      <p className="text-sm text-muted-foreground leading-relaxed">{message}</p>
+      <div className="mt-6 flex justify-end gap-2.5">
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={onClose}
-          className="rounded-md border border-border px-3 py-1.5 text-sm transition-colors hover:bg-muted"
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="destructive"
+          size="sm"
           onClick={onConfirm}
-          disabled={loading}
-          className="rounded-md bg-destructive px-3 py-1.5 text-sm text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
+          isLoading={loading}
         >
-          {loading ? 'Deleting…' : confirmLabel}
-        </button>
+          {confirmLabel}
+        </Button>
       </div>
     </Modal>
   )

@@ -41,23 +41,23 @@ export function Modal({ open, onClose, title, children, maxWidth = 'max-w-lg' }:
   return (
     <dialog
       ref={dialogRef}
-      className={`${maxWidth} w-full rounded-lg border border-border bg-card p-0 text-foreground shadow-xl backdrop:bg-background/80 backdrop:backdrop-blur-sm`}
+      className={`${maxWidth} w-full rounded-2xl border border-border bg-card p-0 text-foreground skeuo-card shadow-2xl backdrop:bg-background/80 backdrop:backdrop-blur-md`}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="flex items-center justify-between border-b border-border px-5 py-4">
-        <h2 className="text-base font-semibold">{title}</h2>
+      <div className="flex items-center justify-between border-b border-border/80 px-6 py-4">
+        <h2 className="text-base font-semibold tracking-tight">{title}</h2>
         <button
           type="button"
           onClick={onClose}
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="skeuo-button-secondary flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:text-foreground"
           aria-label="Close"
         >
           <X className="size-4" />
         </button>
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-6">{children}</div>
     </dialog>
   )
 }

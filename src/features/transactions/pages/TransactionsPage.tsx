@@ -6,6 +6,8 @@ import { TransactionsTable } from '../components/TransactionsTable'
 import { MarkLostDamagedModal } from '../components/MarkLostDamagedModal'
 import { DEFAULT_PAGE_SIZE } from '@/constants'
 import { exportToXlsx, exportToCsv } from '@/features/reports/utils/export.utils'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import type { TransactionType, TransactionWithDetails } from '../types'
 
 export function TransactionsPage() {
@@ -16,7 +18,6 @@ export function TransactionsPage() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
 
-  // Action modal state
   const [selectedTx, setSelectedTx] = useState<TransactionWithDetails | null>(null)
   const [actionType, setActionType] = useState<'lost' | 'damaged' | 'force_return' | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
@@ -69,7 +70,6 @@ export function TransactionsPage() {
     return `Logged on ${new Date(tx.created_at).toLocaleDateString()}`
   }
 
-  // Export with single unified date column for Borrow and Return
   function handleExportUnifiedXlsx() {
     const records = data?.data ?? []
     if (records.length === 0) return
@@ -108,7 +108,6 @@ export function TransactionsPage() {
     ])
   }
 
-  // Standard multi-column export
   function handleExportStandardCsv() {
     const records = data?.data ?? []
     if (records.length === 0) return
@@ -138,53 +137,61 @@ export function TransactionsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/80 pb-5">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
-            <ArrowLeftRight className="size-6 text-primary" />
-            Transactions
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <ArrowLeftRight className="size-5 text-foreground" />
+            <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+              Transactions Ledger
+            </h1>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
             Complete lifecycle ledger tracking checkouts, check-ins, overdue loans, and write-offs.
           </p>
         </div>
 
         {/* Action & Export buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleExportUnifiedXlsx}
             disabled={!data || data.data.length === 0}
-            className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-500/20 transition-colors shadow-sm disabled:opacity-50"
+            className="gap-1.5 text-xs"
             title="Download XLSX with Borrow & Return dates in a single column"
           >
             <FileSpreadsheet className="size-3.5" />
-            Export XLSX (Single Date Col)
-          </button>
+            Export XLSX
+          </Button>
 
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleExportStandardCsv}
             disabled={!data || data.data.length === 0}
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-sm disabled:opacity-50"
+            className="gap-1.5 text-xs"
           >
             <Download className="size-3.5" />
             Export CSV
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => void refetch()}
             disabled={isFetching}
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors disabled:opacity-50 shadow-sm"
+            className="gap-1.5 text-xs"
           >
             <RefreshCw className={`size-3.5 ${isFetching ? 'animate-spin' : ''}`} />
             Refresh
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Filters Bar */}
-      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+      <Card className="p-4">
         <TransactionFilters
           type={type}
           onTypeChange={(newType) => {
@@ -207,7 +214,7 @@ export function TransactionsPage() {
             setPage(1)
           }}
         />
-      </div>
+      </Card>
 
       {/* Transactions Table */}
       <TransactionsTable

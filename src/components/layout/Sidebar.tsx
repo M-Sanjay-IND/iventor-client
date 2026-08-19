@@ -8,9 +8,9 @@ import {
   Settings,
   PanelLeftClose,
   PanelLeft,
+  Boxes,
 } from 'lucide-react'
-import { NAV_ITEMS } from '@/constants'
-import { APP_NAME } from '@/constants'
+import { NAV_ITEMS, APP_NAME } from '@/constants'
 import type { LucideIcon } from 'lucide-react'
 
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -30,22 +30,32 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
-      className={`flex h-screen flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 ${
-        collapsed ? 'w-16' : 'w-56'
+      className={`flex h-screen flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 select-none ${
+        collapsed ? 'w-16' : 'w-60'
       }`}
     >
-      {/* Brand */}
-      <div className="flex h-14 items-center border-b border-sidebar-border px-4">
-        {!collapsed && (
-          <span className="text-sm font-semibold tracking-tight text-sidebar-foreground">
-            {APP_NAME}
-          </span>
+      {/* Brand Header */}
+      <div className="flex h-14 items-center border-b border-sidebar-border/80 px-4">
+        {!collapsed ? (
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground skeuo-button-primary">
+              <Boxes className="size-4" />
+            </div>
+            <span className="text-sm font-semibold tracking-tight text-sidebar-foreground">
+              {APP_NAME}
+            </span>
+          </div>
+        ) : (
+          <div className="mx-auto flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground skeuo-button-primary">
+            <Boxes className="size-4" />
+          </div>
         )}
+
         <button
           type="button"
           onClick={onToggle}
-          className={`flex size-8 items-center justify-center rounded-md text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground ${
-            collapsed ? 'mx-auto' : 'ml-auto'
+          className={`flex size-7 items-center justify-center rounded-lg text-sidebar-foreground/60 transition-all hover:bg-sidebar-accent hover:text-sidebar-foreground ${
+            collapsed ? 'hidden' : 'ml-auto'
           }`}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
@@ -57,8 +67,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-2 py-3">
+      {/* Navigation Dock */}
+      <nav className="flex-1 space-y-1.5 p-3">
         {NAV_ITEMS.map((item) => {
           const Icon = ICON_MAP[item.icon]
           return (
@@ -67,20 +77,47 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               to={item.path}
               end={item.path === '/admin'}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
+                `flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-all ${
                   isActive
-                    ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
-                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
-                } ${collapsed ? 'justify-center px-0' : ''}`
+                    ? 'bg-card text-foreground skeuo-pill font-semibold shadow-xs'
+                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground'
+                } ${collapsed ? 'justify-center px-0 py-2.5' : ''}`
               }
               title={collapsed ? item.label : undefined}
             >
-              {Icon && <Icon className="size-4 shrink-0" />}
-              {!collapsed && <span>{item.label}</span>}
+              {({ isActive }) => (
+                <>
+                  {Icon && (
+                    <Icon
+                      className={`size-4 shrink-0 transition-transform ${
+                        isActive ? 'text-foreground' : 'text-sidebar-foreground/70'
+                      }`}
+                    />
+                  )}
+                  {!collapsed && <span>{item.label}</span>}
+                  {!collapsed && isActive && (
+                    <span className="ml-auto size-1.5 rounded-full bg-foreground" />
+                  )}
+                </>
+              )}
             </NavLink>
           )
         })}
       </nav>
+
+      {/* Footer expand button when collapsed */}
+      {collapsed && (
+        <div className="p-3 border-t border-sidebar-border">
+          <button
+            type="button"
+            onClick={onToggle}
+            className="flex size-9 mx-auto items-center justify-center rounded-lg text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+            aria-label="Expand sidebar"
+          >
+            <PanelLeft className="size-4" />
+          </button>
+        </div>
+      )}
     </aside>
   )
 }

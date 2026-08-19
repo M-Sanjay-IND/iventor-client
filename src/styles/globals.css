@@ -1,17 +1,5 @@
 @import 'tailwindcss';
 
-/*
- * ============================================================================
- * INVENTOR CLIENT — DESIGN SYSTEM
- * ============================================================================
- *
- * Color palette inspired by Apple, Linear, Notion, Stripe, and Vercel.
- * Uses CSS custom properties for seamless dark/light mode switching.
- *
- * Design tokens follow shadcn/ui conventions for compatibility.
- * ============================================================================
- */
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -44,72 +32,81 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/*
- * Light mode — Clean, professional, Apple-inspired
- */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.12 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.12 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --popover-foreground: oklch(0.12 0 0);
+  --primary: oklch(0.12 0 0);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.955 0 0);
+  --secondary-foreground: oklch(0.12 0 0);
+  --muted: oklch(0.95 0 0);
+  --muted-foreground: oklch(0.48 0 0);
+  --accent: oklch(0.94 0 0);
+  --accent-foreground: oklch(0.12 0 0);
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.89 0 0);
+  --input: oklch(0.89 0 0);
+  --ring: oklch(0.35 0 0);
+  --radius: 0.75rem;
+  --sidebar: oklch(0.975 0 0);
+  --sidebar-foreground: oklch(0.15 0 0);
+  --sidebar-accent: oklch(0.935 0 0);
+  --sidebar-accent-foreground: oklch(0.1 0 0);
+  --sidebar-border: oklch(0.89 0 0);
+  --sidebar-ring: oklch(0.35 0 0);
+
+  /* Skeuomorphic tokens - Light */
+  --skeuo-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --skeuo-card-hover-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 12px 24px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 1);
+  --skeuo-well-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05), inset 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 0 rgba(255, 255, 255, 0.8);
+  --skeuo-button-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  --skeuo-button-sec-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --skeuo-button-pressed: inset 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 0 transparent;
+  --skeuo-pill-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
-/*
- * Dark mode — Premium, deep, Vercel/Linear-inspired
- */
 .dark {
-  --background: oklch(0.145 0 0);
+  --background: oklch(0.1 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.145 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.145 0 0);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+  --primary-foreground: oklch(0.12 0 0);
+  --secondary: oklch(0.2 0 0);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --muted: oklch(0.19 0 0);
+  --muted-foreground: oklch(0.65 0 0);
+  --accent: oklch(0.22 0 0);
   --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
-  --sidebar: oklch(0.17 0 0);
+  --destructive: oklch(0.5 0.2 25);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.24 0 0);
+  --input: oklch(0.24 0 0);
+  --ring: oklch(0.6 0 0);
+  --sidebar: oklch(0.12 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --sidebar-accent: oklch(0.19 0 0);
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(0.22 0 0);
+  --sidebar-ring: oklch(0.6 0 0);
+
+  /* Skeuomorphic tokens - Dark */
+  --skeuo-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --skeuo-card-hover-shadow: 0 4px 16px rgba(0, 0, 0, 0.7), 0 12px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  --skeuo-well-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.8), inset 0 1px 2px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.05);
+  --skeuo-button-shadow: 0 1px 3px rgba(0, 0, 0, 0.8), 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  --skeuo-button-sec-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --skeuo-button-pressed: inset 0 2px 4px rgba(0, 0, 0, 0.9), 0 0 0 transparent;
+  --skeuo-pill-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-/*
- * Base styles
- */
 @layer base {
   * {
     @apply border-border;
@@ -120,13 +117,95 @@
     font-feature-settings: 'rlig' 1, 'calt' 1;
   }
 
-  /* Smooth scrolling for all scrollable elements */
   html {
     scroll-behavior: smooth;
   }
 
-  /* Focus visible styles for accessibility */
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-ring;
   }
+}
+
+/* Minimal Skeuomorphic utility classes */
+.skeuo-card {
+  box-shadow: var(--skeuo-card-shadow);
+  border: 1px solid var(--border);
+}
+
+.skeuo-card-interactive {
+  box-shadow: var(--skeuo-card-shadow);
+  border: 1px solid var(--border);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.skeuo-card-interactive:hover {
+  box-shadow: var(--skeuo-card-hover-shadow);
+  transform: translateY(-1px);
+}
+
+.skeuo-well {
+  box-shadow: var(--skeuo-well-shadow);
+  background-color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.skeuo-button-primary {
+  box-shadow: var(--skeuo-button-shadow);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.skeuo-button-primary:hover {
+  transform: translateY(-0.5px);
+  filter: brightness(1.03);
+}
+
+.skeuo-button-primary:active {
+  box-shadow: var(--skeuo-button-pressed);
+  transform: translateY(1px);
+}
+
+.skeuo-button-secondary {
+  box-shadow: var(--skeuo-button-sec-shadow);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.skeuo-button-secondary:hover {
+  transform: translateY(-0.5px);
+  background-color: var(--accent);
+}
+
+.skeuo-button-secondary:active {
+  box-shadow: var(--skeuo-well-shadow);
+  transform: translateY(1px);
+}
+
+.skeuo-pill {
+  box-shadow: var(--skeuo-pill-shadow);
+  border: 1px solid var(--border);
+}
+
+.skeuo-input {
+  box-shadow: var(--skeuo-well-shadow);
+  border: 1px solid var(--border);
+  transition: all 0.15s ease;
+}
+
+.skeuo-input:focus {
+  box-shadow: var(--skeuo-well-shadow), 0 0 0 2px var(--ring);
+}
+
+.skeuo-led {
+  position: relative;
+  border-radius: 9999px;
+}
+
+.skeuo-led::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.25;
+  filter: blur(2px);
+  pointer-events: none;
 }

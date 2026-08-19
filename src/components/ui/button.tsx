@@ -4,17 +4,11 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 import { Spinner } from './spinner'
 
-/**
- * Button variant definitions using CVA.
- *
- * Follows shadcn/ui conventions with Apple-inspired styling.
- * All variants support focus-visible, disabled, and loading states.
- */
 const buttonVariants = cva(
   [
     'inline-flex items-center justify-center gap-2',
-    'whitespace-nowrap rounded-md text-sm font-medium',
-    'ring-offset-background transition-all duration-200',
+    'whitespace-nowrap rounded-lg text-sm font-medium',
+    'transition-all duration-150 ease-out select-none',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
     'disabled:pointer-events-none disabled:opacity-50',
     'cursor-pointer',
@@ -24,23 +18,23 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 active:scale-[0.98]',
+          'skeuo-button-primary bg-primary text-primary-foreground font-semibold border border-foreground/20 hover:brightness-105 active:scale-[0.98]',
         destructive:
-          'bg-destructive text-white shadow-sm hover:bg-destructive/90 active:scale-[0.98]',
+          'bg-destructive text-destructive-foreground shadow-sm hover:brightness-110 active:scale-[0.98] border border-destructive/30',
         outline:
-          'border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground active:scale-[0.98]',
+          'skeuo-button-secondary border border-border bg-card text-foreground hover:bg-muted/80 hover:border-foreground/20 active:scale-[0.98]',
         secondary:
-          'bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 active:scale-[0.98]',
+          'skeuo-button-secondary bg-secondary text-secondary-foreground border border-border/80 hover:bg-secondary/70 active:scale-[0.98]',
         ghost:
-          'hover:bg-accent hover:text-accent-foreground',
+          'text-foreground/80 hover:bg-muted hover:text-foreground active:scale-[0.98]',
         link:
-          'text-primary underline-offset-4 hover:underline',
+          'text-foreground underline-offset-4 hover:underline',
       },
       size: {
-        default: 'h-10 px-4 py-2',
-        sm: 'h-9 rounded-md px-3',
-        lg: 'h-11 rounded-md px-8 text-base',
-        icon: 'h-10 w-10',
+        default: 'h-9 px-4 py-2',
+        sm: 'h-8 rounded-md px-3 text-xs',
+        lg: 'h-11 rounded-lg px-7 text-base font-semibold',
+        icon: 'h-9 w-9 rounded-lg',
       },
     },
     defaultVariants: {
@@ -53,20 +47,10 @@ const buttonVariants = cva(
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
-  /** Renders the button as a child component (Slot pattern) */
   asChild?: boolean
-  /** Shows a loading spinner and disables the button */
   isLoading?: boolean
 }
 
-/**
- * Button component with multiple variants and loading state.
- *
- * @example
- * <Button variant="default" size="lg" isLoading={isPending}>
- *   Sign In
- * </Button>
- */
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   (
     { className, variant, size, asChild = false, isLoading = false, disabled, children, ...props },
@@ -96,5 +80,4 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 )
 Button.displayName = 'Button'
 
-// eslint-disable-next-line react-refresh/only-export-components
 export { Button, buttonVariants }
