@@ -1,14 +1,67 @@
+import { useEffect } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { APP_NAME } from '@/constants'
-import { Monitor, ArrowLeft, Boxes } from 'lucide-react'
+import { Monitor, ArrowLeft, Boxes, ShieldCheck } from 'lucide-react'
 import { ThemeToggle } from './ThemeToggle'
 import { Button } from '@/components/ui/button'
 
 export function CounterLayout() {
   const navigate = useNavigate()
 
+  // Hardware kiosk hotkey lockdown: intercept DevTools, view-source, reloads, print dialogs
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Block F12 (DevTools)
+      if (e.key === 'F12') {
+        e.preventDefault()
+        return
+      }
+      // Block Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+Shift+C (Inspect elements)
+      if (
+        e.ctrlKey &&
+        e.shiftKey &&
+        ['I', 'i', 'J', 'j', 'C', 'c'].includes(e.key)
+      ) {
+        e.preventDefault()
+        return
+      }
+      // Block Ctrl+U (View Page Source)
+      if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
+        e.preventDefault()
+        return
+      }
+      // Block Ctrl+P (Print page)
+      if (e.ctrlKey && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault()
+        return
+      }
+      // Block Ctrl+S (Save page)
+      if (e.ctrlKey && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault()
+        return
+      }
+      // Block F5 or Ctrl+R (Prevent accidental reload mid-transaction)
+      if (e.key === 'F5' || (e.ctrlKey && (e.key === 'r' || e.key === 'R'))) {
+        e.preventDefault()
+        return
+      }
+    }
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault()
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('contextmenu', handleContextMenu)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('contextmenu', handleContextMenu)
+    }
+  }, [])
+
   return (
-    <div className="relative flex min-h-screen flex-col bg-background">
+    <div className="relative flex min-h-screen flex-col bg-background select-none">
       {/* Minimal Header */}
       <header className="flex h-16 items-center justify-between border-b border-border/80 bg-background/95 px-6 backdrop-blur-md">
         <div className="flex items-center gap-3">
@@ -23,6 +76,10 @@ export function CounterLayout() {
               <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/80 px-1.5 py-0.2 text-[10px] font-mono text-muted-foreground">
                 <Monitor className="size-2.5" />
                 TERMINAL NODE
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.2 text-[10px] font-medium text-emerald-600">
+                <ShieldCheck className="size-2.5" />
+                KIOSK GUARD
               </span>
             </div>
             <p className="text-[11px] text-muted-foreground">Public check-out & return station</p>

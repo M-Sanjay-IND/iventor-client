@@ -183,12 +183,32 @@ erDiagram
 
 ---
 
-## 🔒 Security & Row-Level Security (RLS)
+## 🔒 Security Architecture & Workstation Lockdown
 
-- **Principle of Least Privilege**: Counter terminals operate through secure PostgreSQL `SECURITY DEFINER` RPC functions with strict parameter validation.
-- **Strict RLS Enforcement**: Public anon users cannot query inventory records or transactions directly.
-- **Transient Borrower Tokens**: Borrower tokens expire automatically after 10 minutes or upon explicit checkout.
-- **Audit Logging**: Every state change, authentication attempt, import operation, and admin override is logged permanently to `audit_logs`.
+### 1. Hardware-Only Optical Scanner Guard (Anti-Tamper)
+To prevent students or malicious actors from manually typing arbitrary QR codes or pasting UIDs from a clipboard:
+* **Microsecond Keystroke Burst Timing**: Hardware 2D optical/laser barcode readers (USB/Bluetooth HID) emulate keystrokes at superhuman rates ($<25\text{ms}$ per character, total duration $<150\text{ms}$).
+* **Manual Entry Filter**: Human typing ($>70\text{ms}$ inter-keystroke arrival) and direct clipboard pasting (`Ctrl+V` / right-click) are detected and **automatically blocked**.
+* **Staff Override Mode**: If a physical sticker is torn or damaged, the librarian can activate "Staff Override" with a single click to enter the code manually.
+
+### 2. Workstation Fullscreen Kiosk Mode (Native Edge/Chrome Launcher)
+Eliminates the complexity and driver breakages associated with Windows "Dedicated Kiosk Accounts" (Assigned Access):
+* **Native Fullscreen Kiosk**: Launches in dedicated app mode stripping address bars, back/forward buttons, URL displays, bookmarks, and tabs.
+* **React Hotkey Interception**: Client-side event listeners intercept and block `F12` (DevTools), `Ctrl+Shift+I` / `J` / `C` (Element Inspector), `Ctrl+U` (Source), `Ctrl+P` (Print), `Ctrl+S` (Save), `F5` / `Ctrl+R` (Reload), and right-click context menus.
+* **Automated Startup Scripts**: Provided under `scripts/`:
+  * `scripts/launch-kiosk-edge.bat`: Launches the fullscreen counter terminal in Microsoft Edge.
+  * `scripts/setup-autostart-kiosk.bat`: Registers auto-boot shortcut in Windows Startup (`shell:startup`).
+  * `scripts/toggle-taskmgr-lock.bat`: 1-click script to disable/enable Task Manager (`Ctrl+Alt+Del`) for students on standard Windows accounts.
+* **3 Supported Physical Topologies (Zero Code Changes)**:
+  * **Setup 1 (Single PC Role-Switched)**: Single monitor on desk; librarian switches to admin console on demand.
+  * **Setup 2 (Dual-Monitor on 1 PC)**: Student kiosk runs on Monitor 2; staff admin console runs on Monitor 1.
+  * **Setup 3 (Dedicated Kiosk + Mobile/Laptop)**: Counter PC is 100% dedicated to students; librarian manages system remotely from personal laptop/phone over Wi-Fi.
+
+### 3. Database Security & Row-Level Security (RLS)
+* **Principle of Least Privilege**: Counter terminals operate strictly through secure PostgreSQL `SECURITY DEFINER` RPC functions.
+* **Strict RLS Enforcement**: Anonymous public users cannot directly execute `INSERT` or `UPDATE` queries on `inventory_items`, `inventory_copies`, or `transactions`.
+* **Transient Borrower Tokens**: Borrower tokens expire automatically after 10 minutes or upon explicit session checkout.
+* **Audit Logging**: Every state change, authentication attempt, bulk import, and administrative override is permanently logged to `audit_logs`.
 
 ---
 
@@ -198,6 +218,7 @@ erDiagram
 - Node.js >= 20.x
 - npm >= 10.x
 - A Supabase Project ([supabase.com](https://supabase.com))
+- Handheld 2D Barcode/QR Scanner (USB or Bluetooth)
 
 ### Installation & Setup
 
@@ -217,17 +238,26 @@ erDiagram
    ```env
    VITE_SUPABASE_URL=https://your-project.supabase.co
    VITE_SUPABASE_ANON_KEY=your-anon-key
-   VITE_COUNTER_DUE_DAYS=7
-   VITE_COUNTER_EMAIL_DOMAIN=yourdomain.edu
+   VITE_COUNTER_DUE_DAYS=14
+   VITE_COUNTER_EMAIL_DOMAIN=college.edu
    ```
 
 4. **Apply Database Migrations**:
-   Run the SQL scripts in `supabase/migrations/` sequentially inside your Supabase SQL Editor.
+   Run the SQL scripts in `supabase/migrations/` sequentially inside your Supabase SQL Editor (`001` through `005`).
 
 5. **Start Local Development Server**:
    ```bash
    npm run dev
    ```
+
+---
+
+## 📖 Department Library Deployment Manuals
+
+Complete, production-tested end-to-end setup guides for deploying iVentor in college department libraries (covering physical book labeling, hardware scanner configuration, workstation lockdown, and daily librarian runbooks):
+
+* 📄 **[Markdown Guide: `docs/LIBRARY_DEPLOYMENT_GUIDE.md`](file:///c:/Users/Sanjay%20M/OneDrive/Documents/iventor-client/docs/LIBRARY_DEPLOYMENT_GUIDE.md)**
+* 📑 **[Word Document Manual: `docs/LIBRARY_DEPLOYMENT_GUIDE.docx`](file:///c:/Users/Sanjay%20M/OneDrive/Documents/iventor-client/docs/LIBRARY_DEPLOYMENT_GUIDE.docx)**
 
 ---
 
@@ -242,6 +272,9 @@ erDiagram
 | `npm run lint` | Run ESLint with zero-warning threshold |
 | `npm run format` | Format codebase using Prettier |
 | `npm run validate` | Complete CI verification (`typecheck + lint + format + test`) |
+| `scripts/launch-kiosk-edge.bat` | Launch fullscreen library kiosk terminal in Microsoft Edge |
+| `scripts/setup-autostart-kiosk.bat` | Install auto-boot kiosk launcher in Windows Startup |
+| `scripts/toggle-taskmgr-lock.bat` | Toggle Task Manager / Ctrl+Alt+Del lock for kiosk terminal |
 
 ---
 

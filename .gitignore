@@ -39,6 +39,7 @@ supabase/.temp
 # Testing
 coverage
 
-# OS files
+# OS & Office files
 .DS_Store
 desktop.ini
+~$*

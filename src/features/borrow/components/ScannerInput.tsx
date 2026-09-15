@@ -1,5 +1,21 @@
 import { useState, useRef, useEffect } from 'react'
-import { QrCode, Search, CheckCircle2, AlertCircle, ArrowLeft, Loader2, Trash2, ShoppingBag, PackageCheck, Check } from 'lucide-react'
+import {
+  QrCode,
+  Search,
+  CheckCircle2,
+  AlertCircle,
+  ArrowLeft,
+  Loader2,
+  Trash2,
+  ShoppingBag,
+  PackageCheck,
+  Check,
+  ShieldCheck,
+  Unlock,
+  Lock,
+  X,
+  KeyRound,
+} from 'lucide-react'
 import type { CounterMode, QrLookupResult } from '../types'
 import { useLookupQr, useBorrowerActiveLoans } from '../hooks/borrow.queries'
 
@@ -21,7 +37,28 @@ export function ScannerInput({
   const [inputVal, setInputVal] = useState('')
   const [cart, setCart] = useState<QrLookupResult[]>([])
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [allowManualInput, setAllowManualInput] = useState(false)
+  const [showPinModal, setShowPinModal] = useState(false)
+  const [pinValue, setPinValue] = useState('')
+  const [pinError, setPinError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const keyStrokeTimesRef = useRef<number[]>([])
+
+  const STAFF_PIN = (import.meta.env.VITE_STAFF_PIN as string) || '8821'
+
+  function handleVerifyPin(e: React.FormEvent) {
+    e.preventDefault()
+    if (pinValue === STAFF_PIN) {
+      setAllowManualInput(true)
+      setShowPinModal(false)
+      setPinValue('')
+      setPinError(null)
+      setErrorMsg(null)
+    } else {
+      setPinError('Invalid Staff PIN. Manual entry denied.')
+      setPinValue('')
+    }
+  }
 
   const lookupMutation = useLookupQr()
   const isBorrow = mode === 'borrow'
@@ -76,10 +113,37 @@ export function ScannerInput({
     }
   }
 
+  function isManualTypingDetected(times: number[]): boolean {
+    if (times.length < 2) return false
+    const first = times[0]
+    const last = times[times.length - 1]
+    if (first === undefined || last === undefined) return false
+
+    const totalDuration = last - first
+    const avgInterval = totalDuration / (times.length - 1)
+    return avgInterval > 70 || (times.length >= 4 && totalDuration > 600)
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') {
       e.preventDefault()
+
+      // Hardware Scanner Timing Verification:
+      // Barcode/QR optical scanners in HID keyboard emulation emit characters at superhuman speed (<30ms avg interval).
+      // Manual typing takes much longer (>80-150ms per key).
+      if (!allowManualInput && isManualTypingDetected(keyStrokeTimesRef.current)) {
+        setErrorMsg(
+          'Manual keyboard typing blocked! Scan the physical book label with the handheld library scanner.',
+        )
+        setInputVal('')
+        keyStrokeTimesRef.current = []
+        return
+      }
+
+      keyStrokeTimesRef.current = []
       void handleScanOrLookup(inputVal)
+    } else {
+      keyStrokeTimesRef.current.push(performance.now())
     }
   }
 
@@ -202,6 +266,111 @@ export function ScannerInput({
         </div>
       )}
 
+      {/* Scanner Guard Badge & Override Switch */}
+      <div className="flex w-full items-center justify-between mb-2 px-1 text-xs">
+        {allowManualInput ? (
+          <span className="inline-flex items-center gap-1 font-semibold text-amber-500">
+            <Unlock className="size-3.5" /> Staff Manual Override Active
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+            <ShieldCheck className="size-3.5" /> Hardware Scanner Guard Active (Optical HID Only)
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => {
+            if (allowManualInput) {
+              setAllowManualInput(false)
+              setErrorMsg(null)
+            } else {
+              setShowPinModal(true)
+              setPinValue('')
+              setPinError(null)
+            }
+          }}
+          className="text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors flex items-center gap-1"
+        >
+          {allowManualInput ? (
+            'Lock to Scanner Only'
+          ) : (
+            <>
+              <Lock className="size-3" /> Staff Override
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Staff PIN Authorization Modal */}
+      {showPinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border/50 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="flex size-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+                  <KeyRound className="size-4" />
+                </div>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Staff Authorization Required
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPinModal(false)
+                  setPinError(null)
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Enter the 4-digit librarian PIN to temporarily unlock manual keyboard typing.
+            </p>
+
+            <form onSubmit={handleVerifyPin} className="space-y-3">
+              <input
+                type="password"
+                maxLength={4}
+                autoFocus
+                value={pinValue}
+                onChange={(e) => setPinValue(e.target.value)}
+                placeholder="••••"
+                className="h-12 w-full text-center text-2xl tracking-[0.5em] font-mono rounded-xl border border-border bg-muted/40 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+              />
+
+              {pinError && (
+                <p className="text-xs font-medium text-destructive text-center">
+                  {pinError}
+                </p>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPinModal(false)
+                    setPinError(null)
+                  }}
+                  className="w-1/2 h-10 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={pinValue.length !== 4}
+                  className="w-1/2 h-10 rounded-lg bg-primary text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  Authorize
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Scanner / Manual Search Input */}
       <div className="relative w-full mb-6">
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-muted-foreground">
@@ -213,12 +382,40 @@ export function ScannerInput({
           value={inputVal}
           onChange={(e) => setInputVal(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isBorrow ? 'Scan Item QR code to borrow...' : 'Scan physical QR code to return...'}
+          onPaste={(e) => {
+            if (!allowManualInput) {
+              e.preventDefault()
+              setErrorMsg('Clipboard pasting is disabled on scanner input. Scan the physical barcode.')
+            }
+          }}
+          onContextMenu={(e) => {
+            if (!allowManualInput) {
+              e.preventDefault()
+            }
+          }}
+          placeholder={
+            allowManualInput
+              ? 'Enter Item QR UID manually...'
+              : isBorrow
+                ? 'Scan Item QR code to borrow...'
+                : 'Scan physical QR code to return...'
+          }
           disabled={loading || lookupMutation.isPending}
           className="h-14 w-full rounded-xl border border-border bg-card pl-12 pr-28 text-lg font-mono text-foreground placeholder:font-sans placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
         />
         <button
-          onClick={() => void handleScanOrLookup(inputVal)}
+          onClick={() => {
+            if (!allowManualInput && inputVal.trim().length > 0 && isManualTypingDetected(keyStrokeTimesRef.current)) {
+              setErrorMsg(
+                'Manual keyboard typing blocked! Scan the physical barcode or toggle Staff Override.',
+              )
+              setInputVal('')
+              keyStrokeTimesRef.current = []
+              return
+            }
+            keyStrokeTimesRef.current = []
+            void handleScanOrLookup(inputVal)
+          }}
           disabled={!inputVal.trim() || loading || lookupMutation.isPending}
           className="absolute right-2 top-2 bottom-2 flex items-center gap-1 rounded-lg bg-secondary px-4 text-sm font-medium text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50"
         >
